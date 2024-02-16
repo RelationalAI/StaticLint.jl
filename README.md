@@ -1,0 +1,1 @@
+# StaticLint.jl
