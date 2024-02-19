@@ -27,12 +27,13 @@ jobs:
       pull-requests: write
     steps:
     - name: Checkout current repository
-      uses: actions/checkout@v1.0.0
+      uses: actions/checkout@v4
 
     - name: Checkout StaticLint.jl
       uses: actions/checkout@v4
       with:
         repository: RelationalAI/StaticLint.jl
+        token: ${{ secrets.GH_PAT }}
         path: StaticLint.jl
         
     - name: Install Julia
