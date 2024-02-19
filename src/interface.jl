@@ -206,7 +206,7 @@ function print_footer(::PlainFormat, io::IO)
 end
 
 function print_header(::MarkdownFormat, io::IO, rootpath::String)
-    println(io, "**Result of the Lint Static Analyzer ($(now())) on file $(rootpath):**")
+    println(io, "**Output of the [StaticLint.jl code analyzer](https://github.com/RelationalAI/StaticLint.jl) ($(now())) on file $(rootpath):**")
 end
 
 print_footer(::MarkdownFormat, io::IO) = nothing
