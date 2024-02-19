@@ -229,7 +229,8 @@ end
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout)
 
-Run lint rules on a file `rootpath`, which must be an existing non-folder file.
+Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return the
+number of identifide errors.
 Example of use:
     import StaticLint
     StaticLint.run_lint("foo/bar/myfile.jl")
@@ -258,9 +259,10 @@ function run_lint(
     print_header(formatter, io, rootpath)
 
     filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-
-    print_summary(formatter, io, length(filtered_and_printed_hints))
+    number_of_error_found = length(filtered_and_printed_hints)
+    print_summary(formatter, io, number_of_error_found)
     print_footer(formatter, io)
+    return number_of_error_found
 end
 
 function run_lint_on_text(
@@ -289,19 +291,20 @@ The procuded markdown report is intenteded to be posted as a comment on a GitHub
 """
 function generate_report(filenames::Vector{String}, output_filename::String)
     open(output_filename, "w") do output_io
-        if isempty(filenames)
-            println(output_io, "No result for the \
-                    [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
-                    static analyzer\nUTC time=$(now())")
-            return
-        end
-
+        local nb_of_error_found
         for filename in filenames
-            StaticLint.run_lint(
-                filename;
-                io=output_io,
-                filters=essential_filters,
-                formatter=MarkdownFormat())
+            nb_of_error_found = StaticLint.run_lint(
+                                    filename;
+                                    io=output_io,
+                                    filters=essential_filters,
+                                    formatter=MarkdownFormat())
+        end
+        if iszero(nb_of_error_found)
+            println(output_io, "No result for the \
+            [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
+            static analyzer\nUTC time=$(now())")
+        else
+            println(output_io, "**In total, $(nb_of_error_found) errors are found**")
         end
     end
 end
