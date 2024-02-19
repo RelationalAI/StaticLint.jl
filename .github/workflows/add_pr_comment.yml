@@ -1,0 +1,67 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Run static code analyzer Lint
+
+on:
+  pull_request:
+  label:
+
+jobs:
+  check_if_lint_must_be_run:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if lint must be run
+      env:
+        HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:lint') }}
+        ADDING_LABEL: ${{ github.event.label.name == 'build:lint'}}
+        SHOULD_RUN_LINT: ${{ contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint' }}
+      run: |
+        echo "HAS_LABEL: " ${HAS_LABEL}
+        echo "ADDING_LABEL: " ${LABEL_NAME}
+        echo "Should run lint: " ${SHOULD_RUN_LINT}
+      
+  run_lint:
+    if: contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - name: Checkout current repository
+      uses: actions/checkout@v1.0.0
+
+    - name: Checkout StaticLint.jl
+      uses: actions/checkout@v4
+      with:
+        repository: RelationalAI/StaticLint.jl
+        path: StaticLint.jl
+        
+    - name: Install Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.10'
+
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v42
+      # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
+      # with:
+      #   since_last_remote_commit: true 
+
+    - name: List all changed files
+      env:
+        ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+      run: |
+        for file in ${ALL_CHANGED_FILES}; do
+          echo "$file" >> files_to_run_lint.txt
+          echo "$file was changed"
+        done
+          
+    - name: Run lint
+      run: bash run_static_lint.sh ${ALL_CHANGED_FILES}
+      
+    - uses: mshick/add-pr-comment@v2
+      if: always()
+      with:
+        message-path: result.txt
+        # refresh-message-position: true
+        # allow-repeats: true
