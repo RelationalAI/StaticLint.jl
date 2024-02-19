@@ -167,18 +167,20 @@ function _run_lint_on_dir(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    local result = 0
     for (root, dirs, files) in walkdir(rootpath)
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                run_lint(filename; server, io, filters, formatter)
+                result += run_lint(filename; server, io, filters, formatter)
             end
         end
 
         for dir in dirs
-            _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
+            result += _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
         end
     end
+    return result
 end
 
 function print_header(::PlainFormat, io::IO, rootpath::String)
@@ -251,7 +253,7 @@ function run_lint(
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
-    endswith(rootpath, ".jl") || return
+    endswith(rootpath, ".jl") || return 0
 
     # We are running Lint on a Julia file
     _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
