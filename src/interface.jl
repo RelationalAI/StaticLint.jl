@@ -195,7 +195,6 @@ function print_summary(::PlainFormat, io::IO, nb_hints::Int64)
     if iszero(nb_hints)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
-
         plural = nb_hints > 1 ? "s are" : " is"
         printstyled(io, "$(nb_hints) potential threat$(plural) found\n", color=:red)
     end
@@ -206,7 +205,9 @@ function print_footer(::PlainFormat, io::IO)
 end
 
 function print_header(::MarkdownFormat, io::IO, rootpath::String)
-    println(io, "**Output of the [StaticLint.jl code analyzer](https://github.com/RelationalAI/StaticLint.jl) ($(now())) on file $(rootpath):**")
+    println(io, "**Output of the [StaticLint.jl code analyzer]\
+                (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
+                UTC time: ($(now()))\n")
 end
 
 print_footer(::MarkdownFormat, io::IO) = nothing
@@ -274,5 +275,33 @@ function run_lint_on_text(
         write(file, source)
         flush(file)
         run_lint(tmp_file_name; server, io, filters, formatter)
+    end
+end
+
+
+"""
+    generate_report(filenames::Vector{String}, output_filename::String)
+
+Main entry point of StaticLint.jl. The function `generate_report` takes as argument a list
+of files on which lint has to process. A report is generated containing the result.
+
+The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
+"""
+function generate_report(filenames::Vector{String}, output_filename::String)
+    open(output_filename, "w") do output_io
+        if isempty(filenames)
+            println(output_io, "No result for the \
+                    [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
+                    static analyzer\nUTC time=$(now())")
+            return
+        end
+
+        for filename in filenames
+            StaticLint.run_lint(
+                filename;
+                io=output_io,
+                filters=essential_filters,
+                formatter=MarkdownFormat())
+        end
     end
 end
