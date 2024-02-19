@@ -291,9 +291,9 @@ The procuded markdown report is intenteded to be posted as a comment on a GitHub
 """
 function generate_report(filenames::Vector{String}, output_filename::String)
     open(output_filename, "w") do output_io
-        local nb_of_error_found
+        local nb_of_error_found = 0
         for filename in filenames
-            nb_of_error_found = StaticLint.run_lint(
+            nb_of_error_found += StaticLint.run_lint(
                                     filename;
                                     io=output_io,
                                     filters=essential_filters,
