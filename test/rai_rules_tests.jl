@@ -387,13 +387,12 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                        \*\*Result of the Lint Static Analyzer (\H+) on file \H+:\*\*
-
-
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
+                        UTC time: \(\H+\)
                         🎉No potential threats were found.👍
-                        \*\*Result of the Lint Static Analyzer (\H+) on file \H+:\*\*
 
-
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
+                        UTC time: \(\H+\)
                         🎉No potential threats were found.👍
                         """
                     @test !isnothing(match(expected, result))
@@ -419,15 +418,14 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                        \*\*Result of the Lint Static Analyzer (\H+) on file \H+:\*\*
-                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async. at offset 15 of \H+
-
-
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
+                        UTC time: \(\H+\)
+                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
                         🚨\*\*1 potential threat is found\*\*🚨
-                        \*\*Result of the Lint Static Analyzer (\H+) on file \H+:\*\*
-                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async. at offset 15 of \H+
 
-
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint.jl\) on file \H+\*\*
+                        UTC time: \(\H+\)
+                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
                         🚨\*\*1 potential threat is found\*\*🚨
                         """
                     @test !isnothing(match(expected, result))

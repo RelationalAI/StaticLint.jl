@@ -1,3 +1,5 @@
+import InteractiveUtils
+
 @enum(
     LintCodes,
 
@@ -39,7 +41,10 @@
     ProhibitedFinalizer,
     ProhibitedCCall,
     ProhibitedPointerFromObjref,
+    ExtendedCode,
 )
+
+include("extended_checks.jl")
 
 const LintCodeDescriptions = Dict{LintCodes,String}(
     IncorrectCallArgs => "Possible method call error.",
@@ -134,11 +139,9 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     check_const(x)
 
     if opts.extended
-        check_async(x)
-        check_nthreads(x, markers)
-        check_finalizer(x)
-        check_ccall(x)
-        check_pointer_from_objref(x)
+        for T in all_extended_rule_types
+            check(T(), x, markers)
+        end
     end
 
     if x.args !== nothing
@@ -152,63 +155,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     end
 end
 
-function is_hole_variable(x::CSTParser.EXPR)
-    return x.head == :IDENTIFIER && x.val in ["hole_variable", "hole_variable_star"]
-end
 
-function is_hole_variable_star(x::CSTParser.EXPR)
-    return x.head == :IDENTIFIER && x.val == "hole_variable_star"
-end
-
-comp(x, y) = x == y
-function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
-    (is_hole_variable(x) || is_hole_variable(y)) && return true
-
-    result = comp(x.head, y.head) && x.val == y.val
-    !result && return false
-
-    min_length = min(length(x), length(y))
-
-    for i in 1:min_length
-        comp(x[i], y[i]) || return false
-        (is_hole_variable_star(x[i]) || is_hole_variable_star(y[i])) && return true
-    end
-
-    length(x) == length(y) && return true
-
-    if length(x) == min_length
-        return is_hole_variable_star(y[min_length + 1])
-    end
-
-    if length(y) == min_length
-        return is_hole_variable_star(x[min_length + 1])
-    end
-
-    return false
-end
-
-const check_cache = Dict{String, CSTParser.EXPR}()
-function generic_check(x::EXPR, template_code::String, error_value)
-    get!(check_cache, template_code, CSTParser.parse(template_code))
-    oracle = check_cache[template_code]
-    if comp(x, oracle)
-        seterror!(x, error_value)
-    end
-end
-
-
-function check_finalizer(x::EXPR)
-    generic_check(x, "finalizer(hole_variable, hole_variable)", ProhibitedFinalizer)
-    generic_check(x, "finalizer(x) do hole_variable hole_variable end", ProhibitedFinalizer)
-end
-check_async(x::EXPR) = generic_check(x, "@async hole_variable", ProhibitedAsyncMacro)
-check_ccall(x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", ProhibitedCCall)
-check_pointer_from_objref(x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", ProhibitedPointerFromObjref)
-
-function check_nthreads(x::EXPR, markers::Dict{Symbol,Symbol})
-    haskey(markers, :const) || return
-    generic_check(x, "Threads.nthreads()", ProhibitedNThreads)
-end
 
 
 
@@ -714,6 +661,11 @@ function collect_hints(x::EXPR, env, missingrefs=:all, isquoted=false, errs=Tupl
         elseif haserror(x) && errorof(x) isa StaticLint.LintCodes
             # collect lint hints
             push!(errs, (pos, x))
+        elseif haserror(x) && errorof(x) isa String
+            # We now have an extended error
+            push!(errs, (pos, x))
+            # extended_check_error_msg(errorof(x))
+            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
         end
     elseif isquoted && missingrefs == :all && should_mark_missing_getfield_ref(x, env)
         push!(errs, (pos, x))

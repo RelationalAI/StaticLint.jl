@@ -203,13 +203,13 @@ function print_summary(::PlainFormat, io::IO, nb_hints::Int64)
 end
 
 function print_footer(::PlainFormat, io::IO)
-    printstyled(io, "-" ^ 10 * "\n", color=:blue)
+    printstyled(io, "-" ^ 10 * "\n\n", color=:blue)
 end
 
 function print_header(::MarkdownFormat, io::IO, rootpath::String)
     println(io, "**Output of the [StaticLint.jl code analyzer]\
                 (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
-                UTC time: ($(now()))\n")
+                UTC time: ($(now()))")
 end
 
 print_footer(::MarkdownFormat, io::IO) = nothing
@@ -218,13 +218,11 @@ function print_hint(::MarkdownFormat, io::IO, coordinates::String, hint::String)
 end
 
 function print_summary(::MarkdownFormat, io::IO, nb_hints::Int64)
-    println(io)
-    println(io)
     if iszero(nb_hints)
-        print(io, "🎉No potential threats were found.👍\n")
+        print(io, "🎉No potential threats were found.👍\n\n")
     else
         plural = nb_hints > 1 ? "s are" : " is"
-        print(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
+        println(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
     end
 end
 
