@@ -244,7 +244,7 @@ function run_lint(
     formatter::AbstractFormatter=PlainFormat()
 )
     # Did we already analyzed this file? If yes, then exit.
-    rootpath in keys(server.files) && return
+    rootpath in keys(server.files) && return 0
 
     # If we are running Lint on a directory
     isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
