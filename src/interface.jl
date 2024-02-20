@@ -76,7 +76,7 @@ global global_server = setup_server()
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
-const essential_filters = [no_filters; [StaticLint.MissingReference]]
+const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile]]
 
 
 # Return (line, column) for a given offset in a source
