@@ -290,6 +290,11 @@ of files on which lint has to process. A report is generated containing the resu
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
 """
 function generate_report(filenames::Vector{String}, output_filename::String)
+    if isfile(output_filename)
+        @error "File $output_filename exist already."
+        return
+    end
+
     open(output_filename, "w") do output_io
         local nb_of_error_found = 0
 
