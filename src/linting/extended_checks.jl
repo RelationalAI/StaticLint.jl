@@ -1,5 +1,7 @@
 
-## UTILITY FUNCTIONS
+#################################################################################
+# UTILITY FUNCTIONS
+#################################################################################
 function is_hole_variable(x::CSTParser.EXPR)
     return x.head == :IDENTIFIER && x.val in ["hole_variable", "hole_variable_star"]
 end
@@ -35,6 +37,12 @@ function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
     return false
 end
 
+#################################################################################
+# EXTENDED LINT RULES
+#################################################################################
+const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
+const check_cache = Dict{String, CSTParser.EXPR}()
+
 abstract type ExtendedRule end
 struct Async_Extention <: ExtendedRule end
 struct Ccall_Extention <: ExtendedRule end
@@ -42,32 +50,30 @@ struct Pointer_from_objref_Extention <: ExtendedRule end
 struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
 
-const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
-
-const check_cache = Dict{String, CSTParser.EXPR}()
-const error_msgs = Dict{String, String}()
-
 function generic_check(x::EXPR, template_code::String, error_code)
     get!(check_cache, template_code, CSTParser.parse(template_code))
-    # get!(error_msgs, template_code, error_msg)
     oracle = check_cache[template_code]
     if comp(x, oracle)
         seterror!(x, error_code)
     end
 end
 
+# Useful for rules that do not need markers
+check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
+
+# The following function defines rules that are matched on the input Julia source code
+# Each rule comes with a pattern that is checked against the abstract syntax tree
 function check(::Finalizer_Extention, x::EXPR)
     generic_check(x, "finalizer(hole_variable, hole_variable)", ProhibitedFinalizer)
     generic_check(x, "finalizer(x) do hole_variable hole_variable end", ProhibitedFinalizer)
 end
 
-# Useful for rules that do not need markers
-check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
 check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", ProhibitedAsyncMacro)
 check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", ProhibitedCCall)
 check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", ProhibitedPointerFromObjref)
 
 function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+    # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
     haskey(markers, :const) || return
     generic_check(x, "Threads.nthreads()", ProhibitedNThreads)
 end
