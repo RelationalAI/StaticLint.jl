@@ -4,7 +4,7 @@ name: Run static code analyzer Lint
 
 on:
   pull_request:
-  label:
+    types: [ labeled, opened, synchronize ]
 
 jobs:
   check_if_lint_must_be_run:
@@ -19,23 +19,26 @@ jobs:
         echo "HAS_LABEL: " ${HAS_LABEL}
         echo "ADDING_LABEL: " ${LABEL_NAME}
         echo "Should run lint: " ${SHOULD_RUN_LINT}
-      
+
   run_lint:
     if: contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint'
     runs-on: ubuntu-latest
+    permissions:
+        pull-requests: write
+        contents: read
     steps:
     - name: Checkout current repository
       uses: actions/checkout@v4
       with:
-        path: rai
+        path: raicode
 
     - name: Checkout StaticLint.jl
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
       with:
         repository: RelationalAI/StaticLint.jl
-        token: ${{ secrets.LINT_SECRET }}
+        ssh-key: ${{ secrets.DELVECI_SSH }}
         path: StaticLint.jl
-        
+
     - name: Install Julia
       uses: julia-actions/setup-julia@v1
       with:
@@ -46,22 +49,21 @@ jobs:
       uses: tj-actions/changed-files@v42
       # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
       # with:
-      #   since_last_remote_commit: true 
+      #   since_last_remote_commit: true
 
     - name: List all changed files
       env:
         ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
         for file in ${ALL_CHANGED_FILES}; do
-          echo "$file" >> files_to_run_lint.txt
+          echo "raicode/$file" >> files_to_run_lint.txt
           echo "$file was changed"
         done
-          
+
     - name: Run lint
-      run: bash run_static_lint.sh ${ALL_CHANGED_FILES}
-      
+      run: bash StaticLint.jl/scripts/run_static_lint.sh
+
     - uses: mshick/add-pr-comment@v2
-      if: always()
       with:
         message-path: result.txt
         # refresh-message-position: true

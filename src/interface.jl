@@ -167,18 +167,20 @@ function _run_lint_on_dir(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    local result = 0
     for (root, dirs, files) in walkdir(rootpath)
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                run_lint(filename; server, io, filters, formatter)
+                result += run_lint(filename; server, io, filters, formatter)
             end
         end
 
         for dir in dirs
-            _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
+            result += _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
         end
     end
+    return result
 end
 
 function print_header(::PlainFormat, io::IO, rootpath::String)
@@ -195,18 +197,19 @@ function print_summary(::PlainFormat, io::IO, nb_hints::Int64)
     if iszero(nb_hints)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
-
         plural = nb_hints > 1 ? "s are" : " is"
         printstyled(io, "$(nb_hints) potential threat$(plural) found\n", color=:red)
     end
 end
 
 function print_footer(::PlainFormat, io::IO)
-    printstyled(io, "-" ^ 10 * "\n", color=:blue)
+    printstyled(io, "-" ^ 10 * "\n\n", color=:blue)
 end
 
 function print_header(::MarkdownFormat, io::IO, rootpath::String)
-    println(io, "**Result of the Lint Static Analyzer ($(now())) on file $(rootpath):**")
+    println(io, "**Output of the [StaticLint.jl code analyzer]\
+                (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
+                UTC time: ($(now()))")
 end
 
 print_footer(::MarkdownFormat, io::IO) = nothing
@@ -215,20 +218,19 @@ function print_hint(::MarkdownFormat, io::IO, coordinates::String, hint::String)
 end
 
 function print_summary(::MarkdownFormat, io::IO, nb_hints::Int64)
-    println(io)
-    println(io)
     if iszero(nb_hints)
-        print(io, "🎉No potential threats were found.👍\n")
+        print(io, "🎉No potential threats were found.👍\n\n")
     else
         plural = nb_hints > 1 ? "s are" : " is"
-        print(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
+        println(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
     end
 end
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout)
 
-Run lint rules on a file `rootpath`, which must be an existing non-folder file.
+Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return the
+number of identifide errors.
 Example of use:
     import StaticLint
     StaticLint.run_lint("foo/bar/myfile.jl")
@@ -242,14 +244,14 @@ function run_lint(
     formatter::AbstractFormatter=PlainFormat()
 )
     # Did we already analyzed this file? If yes, then exit.
-    rootpath in keys(server.files) && return
+    rootpath in keys(server.files) && return 0
 
     # If we are running Lint on a directory
     isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
-    endswith(rootpath, ".jl") || return
+    endswith(rootpath, ".jl") || return 0
 
     # We are running Lint on a Julia file
     _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
@@ -257,9 +259,10 @@ function run_lint(
     print_header(formatter, io, rootpath)
 
     filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-
-    print_summary(formatter, io, length(filtered_and_printed_hints))
+    number_of_error_found = length(filtered_and_printed_hints)
+    print_summary(formatter, io, number_of_error_found)
     print_footer(formatter, io)
+    return number_of_error_found
 end
 
 function run_lint_on_text(
@@ -274,5 +277,41 @@ function run_lint_on_text(
         write(file, source)
         flush(file)
         run_lint(tmp_file_name; server, io, filters, formatter)
+    end
+end
+
+
+"""
+    generate_report(filenames::Vector{String}, output_filename::String)
+
+Main entry point of StaticLint.jl. The function `generate_report` takes as argument a list
+of files on which lint has to process. A report is generated containing the result.
+
+The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
+"""
+function generate_report(filenames::Vector{String}, output_filename::String)
+    if isfile(output_filename)
+        @error "File $output_filename exist already."
+        return
+    end
+
+    open(output_filename, "w") do output_io
+        local nb_of_error_found = 0
+
+        println(output_io, "## Static code analyzer report)")
+        for filename in filenames
+            nb_of_error_found += StaticLint.run_lint(
+                                    filename;
+                                    io=output_io,
+                                    filters=essential_filters,
+                                    formatter=MarkdownFormat())
+        end
+        if iszero(nb_of_error_found)
+            println(output_io, "No result for the \
+            [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
+            static analyzer\nUTC time=$(now())")
+        else
+            println(output_io, "**In total, $(nb_of_error_found) errors are found**")
+        end
     end
 end
