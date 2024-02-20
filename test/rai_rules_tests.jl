@@ -370,6 +370,18 @@ end
     end
 end
 
+@testset "Run several times on same file" begin
+    mktempdir() do dir
+        open(joinpath(dir, "foo.jl"), "w") do io
+            write(io, "function f()\n  @async 1 + 1\nend\n")
+            flush(io)
+            @test StaticLint.run_lint(dir; io) == 1
+            @test StaticLint.run_lint(dir; io) == 1
+            @test StaticLint.run_lint(dir; io) == 1
+        end
+    end
+end
+
 @testset "Linting multiple files" begin
     @testset "No errors" begin
         mktempdir() do dir

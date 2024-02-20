@@ -35,6 +35,23 @@ StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/")
 ```
 output 1928 potential threats.
 
+## Lint rules
+
+Several RAI-specific and generic rules are verified on Julia source code. 
+A number of Julia keywords are known to be [either incompatible or dangerous when committed into raicode](https://relationalai.atlassian.net/browse/RAI-5839). The Lint rules available to be run on source code may be found in this [FILE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). 
+
+
+
+
+
+
+## Adding new rules
+
+
 ## Integration with GitHub Action
 In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
+
+## Fork 
+This repository is a fork of https://github.com/julia-vscode/StaticLint.jl . The decision to fork this project instead of directly contributing to it was not taken lightly. First, the julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such using the original StaticLint with our RAI-specific rules was not an easy or even feasible task.
+

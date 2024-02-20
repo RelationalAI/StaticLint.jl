@@ -76,7 +76,7 @@ global global_server = setup_server()
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
-const essential_filters = [no_filters; [StaticLint.MissingReference]]
+const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile]]
 
 
 # Return (line, column) for a given offset in a source
@@ -243,9 +243,6 @@ function run_lint(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
-    # Did we already analyzed this file? If yes, then exit.
-    rootpath in keys(server.files) && return 0
-
     # If we are running Lint on a directory
     isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
 
@@ -298,7 +295,7 @@ function generate_report(filenames::Vector{String}, output_filename::String)
     open(output_filename, "w") do output_io
         local nb_of_error_found = 0
 
-        println(output_io, "## Static code analyzer report)")
+        println(output_io, "## Static code analyzer report")
         for filename in filenames
             nb_of_error_found += StaticLint.run_lint(
                                     filename;
@@ -307,9 +304,10 @@ function generate_report(filenames::Vector{String}, output_filename::String)
                                     formatter=MarkdownFormat())
         end
         if iszero(nb_of_error_found)
-            println(output_io, "No result for the \
+            println(output_io, "No result produced by \
             [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
-            static analyzer\nUTC time=$(now())")
+            static analyzer\nUTC time=$(now())\n
+            No Julia file is modified or added in this PR.")
         else
             println(output_io, "**In total, $(nb_of_error_found) errors are found**")
         end

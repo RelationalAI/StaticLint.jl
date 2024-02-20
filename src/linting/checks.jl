@@ -155,10 +155,6 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     end
 end
 
-
-
-
-
 function _typeof(x, state)
     if x isa EXPR
         if headof(x) in (:abstract, :primitive, :struct)
