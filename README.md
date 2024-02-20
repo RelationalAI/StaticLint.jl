@@ -35,6 +35,15 @@ StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/")
 ```
 output 1928 potential threats.
 
+## Rules that are considered 
+
+## Adding new rules
+
+
 ## Integration with GitHub Action
 In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
+
+## Fork 
+This repository is a fork of https://github.com/julia-vscode/StaticLint.jl . The decision to fork this project instead of directly contributing to it was not taken lightly. First, the julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such using the original StaticLint with our RAI-specific rules was not an easy or even feasible task.
+
