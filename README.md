@@ -35,7 +35,15 @@ StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/")
 ```
 output 1928 potential threats.
 
-## Rules that are considered 
+## Lint rules
+
+Several RAI-specific and generic rules are verified on Julia source code. 
+A number of Julia keywords are known to be [either incompatible or dangerous when committed into raicode](https://relationalai.atlassian.net/browse/RAI-5839). The Lint rules available to be run on source code may be found in this [FILE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). 
+
+
+
+
+
 
 ## Adding new rules
 
