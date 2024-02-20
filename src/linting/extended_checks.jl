@@ -40,15 +40,16 @@ end
 #################################################################################
 # EXTENDED LINT RULES
 #################################################################################
-const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
-const check_cache = Dict{String, CSTParser.EXPR}()
-
 abstract type ExtendedRule end
 struct Async_Extention <: ExtendedRule end
 struct Ccall_Extention <: ExtendedRule end
 struct Pointer_from_objref_Extention <: ExtendedRule end
 struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
+
+const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
+const check_cache = Dict{String, CSTParser.EXPR}()
+
 
 function generic_check(x::EXPR, template_code::String, error_code)
     get!(check_cache, template_code, CSTParser.parse(template_code))
