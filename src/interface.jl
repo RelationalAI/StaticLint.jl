@@ -295,7 +295,7 @@ function generate_report(filenames::Vector{String}, output_filename::String)
     open(output_filename, "w") do output_io
         local nb_of_error_found = 0
 
-        println(output_io, "## Static code analyzer report)")
+        println(output_io, "## Static code analyzer report")
         for filename in filenames
             nb_of_error_found += StaticLint.run_lint(
                                     filename;
