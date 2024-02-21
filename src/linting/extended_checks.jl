@@ -48,7 +48,11 @@ struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
+
+# template -> EXPR to be compared
 const check_cache = Dict{String, CSTParser.EXPR}()
+
+# template -> error_msg
 const error_msgs = Dict{String, String}()
 
 function get_oracle_ast(template_code::String)
@@ -58,6 +62,7 @@ end
 
 does_match(x::EXPR, template_code::String) = comp(x, get_oracle_ast(template_code))
 function generic_check(x::EXPR, template_code::String, error_code)
+    error_code isa String && get!(error_msgs, template_code, error_code)
     does_match(x, template_code) && seterror!(x, error_code)
 end
 
