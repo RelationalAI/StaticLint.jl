@@ -46,6 +46,8 @@ struct Ccall_Extention <: ExtendedRule end
 struct Pointer_from_objref_Extention <: ExtendedRule end
 struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
+struct CFunction_Extention <: ExtendedRule end
+
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -80,6 +82,7 @@ end
 check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
 check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "ccall should not be used.")
 check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", "pointer_from_objref should not be used.")
+check(::CFunction_Extention, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro @cfunction should not be used.")
 
 function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
     # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere

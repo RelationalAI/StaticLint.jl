@@ -41,6 +41,33 @@ end
             "Line 2, column 5: Macro @spawn should be used instead of @async.")
     end
 
+    @testset "@cfunction 01" begin
+        source = """
+            @cfunction(_readwrite_cb, Cvoid, (Ptr{Cvoid}, ))
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 1, column 1: Macro @cfunction should not be used.")
+    end
+
+    @testset "@cfunction 02" begin
+        source = """
+            function _pread_async!(fd::Integer, buffer::Ptr{UInt8}, count::Integer, offset::Integer)::UInt64
+                uv_filesystem_request, uv_buffer_descriptor = _prepare_libuv_async_call(buffer, count)
+
+                Base.iolock_begin() # Global IO lock must be taken before interacting with libuv
+                uv_submit_ret = ccall(:uv_fs_read, Int32,
+                            (Ptr{Cvoid}, Ptr{Cvoid}, Int32, Ptr{Cvoid}, UInt32, Int64, Ptr{Cvoid}),
+                            Base.eventloop(), uv_filesystem_request, fd, uv_buffer_descriptor, UInt32(1), offset,
+                            @cfunction(_readwrite_cb, Cvoid, (Ptr{Cvoid}, ))
+                            )
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source, "Line 5, column 21: ccall should not be used.")
+        @test lint_test(source, "Line 8, column 17: Macro @cfunction should not be used.")
+    end
+
     @testset "Locally disabling lint" begin
         @testset "lint-disable-lint" begin
             @test !lint_has_error_test("""
