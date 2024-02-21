@@ -1,6 +1,10 @@
 using Dates
 
-function setup_server(env = dirname(SymbolServer.Pkg.Types.Context().env.project_file), depot = first(SymbolServer.Pkg.depots()), cache = joinpath(dirname(pathof(SymbolServer)), "..", "store"))
+function setup_server(
+    env = dirname(SymbolServer.Pkg.Types.Context().env.project_file),
+    depot = first(SymbolServer.Pkg.depots()),
+    cache = joinpath(dirname(pathof(SymbolServer)), "..", "store")
+)
     server = StaticLint.FileServer()
     ssi = SymbolServerInstance(depot, cache)
     _, symbols = SymbolServer.getstore(ssi, env)
@@ -60,7 +64,11 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
             hints_for_file = []
             for (offset, x) in collect_hints(f.cst, getenv(f, server))
                 if haserror(x)
-                    push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
+                    if x.meta.error isa String
+                        push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
+                    else
+                        push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
+                    end
                     push!(hints_for_file, (x, string("Missing reference", " at offset ", offset, " of ", p)))
                 end
             end
