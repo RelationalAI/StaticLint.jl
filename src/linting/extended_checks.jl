@@ -72,16 +72,17 @@ check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
 # The following function defines rules that are matched on the input Julia source code
 # Each rule comes with a pattern that is checked against the abstract syntax tree
 function check(::Finalizer_Extention, x::EXPR)
-    generic_check(x, "finalizer(hole_variable, hole_variable)", ProhibitedFinalizer)
-    generic_check(x, "finalizer(x) do hole_variable hole_variable end", ProhibitedFinalizer)
+    error_msg = "finalize(_,_) should not be used."
+    generic_check(x, "finalizer(hole_variable, hole_variable)", error_msg)
+    generic_check(x, "finalizer(x) do hole_variable hole_variable end", error_msg)
 end
 
-check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", ProhibitedAsyncMacro)
-check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", ProhibitedCCall)
-check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", ProhibitedPointerFromObjref)
+check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
+check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "ccall should not be used.")
+check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", "pointer_from_objref should not be used.")
 
 function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
     # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
     haskey(markers, :const) || return
-    generic_check(x, "Threads.nthreads()", ProhibitedNThreads)
+    generic_check(x, "Threads.nthreads()", "Threads.nthreads() should not be used in a constant variable.")
 end
