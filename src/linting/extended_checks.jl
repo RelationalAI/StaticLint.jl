@@ -50,13 +50,14 @@ struct Finalizer_Extention <: ExtendedRule end
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 const check_cache = Dict{String, CSTParser.EXPR}()
 
-
-function generic_check(x::EXPR, template_code::String, error_code)
+function get_oracle_ast(template_code::String)
     get!(check_cache, template_code, CSTParser.parse(template_code))
-    oracle = check_cache[template_code]
-    if comp(x, oracle)
-        seterror!(x, error_code)
-    end
+    return check_cache[template_code]
+end
+
+does_match(x::EXPR, template_code::String) = comp(x, get_oracle_ast(template_code))
+function generic_check(x::EXPR, template_code::String, error_code)
+    does_match(x, template_code) && seterror!(x, error_code)
 end
 
 # Useful for rules that do not need markers
