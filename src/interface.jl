@@ -1,6 +1,10 @@
 using Dates
 
-function setup_server(env = dirname(SymbolServer.Pkg.Types.Context().env.project_file), depot = first(SymbolServer.Pkg.depots()), cache = joinpath(dirname(pathof(SymbolServer)), "..", "store"))
+function setup_server(
+    env = dirname(SymbolServer.Pkg.Types.Context().env.project_file),
+    depot = first(SymbolServer.Pkg.depots()),
+    cache = joinpath(dirname(pathof(SymbolServer)), "..", "store")
+)
     server = StaticLint.FileServer()
     ssi = SymbolServerInstance(depot, cache)
     _, symbols = SymbolServer.getstore(ssi, env)

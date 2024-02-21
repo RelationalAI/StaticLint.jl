@@ -49,6 +49,7 @@ struct Finalizer_Extention <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 const check_cache = Dict{String, CSTParser.EXPR}()
+const error_msgs = Dict{String, String}()
 
 
 function generic_check(x::EXPR, template_code::String, error_code)
