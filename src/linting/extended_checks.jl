@@ -74,9 +74,9 @@ check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
 # The following function defines rules that are matched on the input Julia source code
 # Each rule comes with a pattern that is checked against the abstract syntax tree
 function check(::Finalizer_Extention, x::EXPR)
-    error_msg = "finalize(_,_) should not be used."
+    error_msg = "finalizer(_,_) should not be used."
     generic_check(x, "finalizer(hole_variable, hole_variable)", error_msg)
-    generic_check(x, "finalizer(x) do hole_variable hole_variable end", error_msg)
+    generic_check(x, "finalizer(hole_variable) do hole_variable hole_variable end", error_msg)
 end
 
 check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
