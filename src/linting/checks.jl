@@ -655,8 +655,6 @@ function collect_hints(x::EXPR, env, missingrefs=:all, isquoted=false, errs=Tupl
         elseif haserror(x) && errorof(x) isa String
             # We now have an extended error
             push!(errs, (pos, x))
-            # extended_check_error_msg(errorof(x))
-            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
         end
     elseif isquoted && missingrefs == :all && should_mark_missing_getfield_ref(x, env)
         push!(errs, (pos, x))

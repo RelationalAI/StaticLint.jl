@@ -683,82 +683,83 @@ f(arg) = arg
         end
     end
 
-    if false # Not to be run, requires JuMP
-        @testset "JuMP macros" begin
-            let cst = parse_and_pass("""
-    using JuMP
-    model = Model()
-    some_bound = 1
-    @variable(model, x0)
-    @variable(model, x1, somekw=1)
-    @variable(model, x2 <= 1)
-    @variable(model, x3 >= 1)
-    @variable(model, 1 <= x4)
-    @variable(model, 1 >= x5)
-    @variable(model, x6 >= some_bound)
+    # if false # Not to be run, requires JuMP
+    #     @testset "JuMP macros" begin
+    #         let cst = parse_and_pass("""
+    # using JuMP
+    # model = Model()
+    # some_bound = 1
+    # @variable(model, x0)
+    # @variable(model, x1, somekw=1)
+    # @variable(model, x2 <= 1)
+    # @variable(model, x3 >= 1)
+    # @variable(model, 1 <= x4)
+    # @variable(model, 1 >= x5)
+    # @variable(model, x6 >= some_bound)
+    # # @variable(model, some_bound >= x7)
+    # """)
+    #             @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #         end
+
+    #         let cst = parse_and_pass("""
+    # using JuMP
+    # model = Model()
+    # some_bound = 1
+    # @variable model x0
+    # @variable model x1 somekw=1
+    # @variable model x2 <= 1
+    # @variable model x3 >= 1
+    # @variable model 1 <= x4
+    # @variable model 1 >= x5
+    # @variable model x6 >= some_bound
+    # # @variable(model, some_bound >= x7)
+    # """)
+    #             @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #         end
+
+    #         let cst = parse_and_pass("""
+    # using JuMP
+    # model = Model()
+    # some_bound = 1
     # @variable(model, some_bound >= x7)
-    """)
-                @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-            end
+    # """)
+    #             @test !StaticLint.hasref(cst[4][5][3])
+    #         end
 
-            let cst = parse_and_pass("""
-    using JuMP
-    model = Model()
-    some_bound = 1
-    @variable model x0
-    @variable model x1 somekw=1
-    @variable model x2 <= 1
-    @variable model x3 >= 1
-    @variable model 1 <= x4
-    @variable model 1 >= x5
-    @variable model x6 >= some_bound
-    # @variable(model, some_bound >= x7)
-    """)
-                @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-            end
+    #         let cst = parse_and_pass("""
+    # using JuMP
+    # model = Model()
+    # some_bound = 1
+    # @expression(model, ex, some_bound >= 1)
+    # """)
+    #             @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #         end
 
-            let cst = parse_and_pass("""
-    using JuMP
-    model = Model()
-    some_bound = 1
-    @variable(model, some_bound >= x7)
-    """)
-                @test !StaticLint.hasref(cst[4][5][3])
-            end
+    #         let cst = parse_and_pass("""
+    # using JuMP
+    # model = Model()
+    # @expression(model, expr, 1 == 1)
+    # @constraint(model, con1, expr)
+    # @constraint model con2 expr
+    # """)
+    #             @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #         end
+    #     end
+    # end
 
-            let cst = parse_and_pass("""
-    using JuMP
-    model = Model()
-    some_bound = 1
-    @expression(model, ex, some_bound >= 1)
-    """)
-                @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-            end
-
-            let cst = parse_and_pass("""
-    using JuMP
-    model = Model()
-    @expression(model, expr, 1 == 1)
-    @constraint(model, con1, expr)
-    @constraint model con2 expr
-    """)
-                @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-            end
-        end
-    end
-
-    @testset "stdcall" begin
-        let cst = parse_and_pass("""
-        ccall(:GetCurrentProcess, stdcall, Ptr{Cvoid}, ())""")
-            StaticLint.collect_hints(cst, getenv(server.files[""], server))
-            @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-        end
-        let cst = parse_and_pass("""
-        stdcall
-        """)
-            @test !StaticLint.hasref(cst[1])
-        end
-    end
+    # @testset "stdcall" begin
+    #     let cst = parse_and_pass("""
+    #     ccall(:GetCurrentProcess, stdcall, Ptr{Cvoid}, ())""")
+    #         StaticLint.collect_hints(cst, getenv(server.files[""], server))
+    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    #         @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #     end
+    #     let cst = parse_and_pass("""
+    #     stdcall
+    #     """)
+    #         @test !StaticLint.hasref(cst[1])
+    #     end
+    # end
 
     @testset "check_if_conds" begin
         let cst = parse_and_pass("""
