@@ -78,12 +78,7 @@ const LintCodeDescriptions = Dict{LintCodes,String}(
     IndexFromLength => "Indexing with indices obtained from `length`, `size` etc is discouraged. Use `eachindex` or `axes` instead.",
     FileTooBig => "File too big, not following include.",
     FileNotAvailable => "File not available.",
-    ProhibitedAsyncMacro => "Macro @spawn should be used instead of @async.",
-    ProhibitedNThreads => "Threads.nthreads() should not be used in a constant variable.",
     MissingReference => "Missing reference",
-    ProhibitedFinalizer => "finalize(_,_) should not be used.",
-    ProhibitedCCall => "ccall should not be used.",
-    ProhibitedPointerFromObjref => "pointer_from_objref should not be used.",
 )
 
 haserror(m::Meta) = m.error !== nothing
