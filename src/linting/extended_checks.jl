@@ -46,6 +46,8 @@ struct Ccall_Extention <: ExtendedRule end
 struct Pointer_from_objref_Extention <: ExtendedRule end
 struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
+struct CFunction_Extension <: ExtendedRule end
+
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -86,3 +88,5 @@ function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
     haskey(markers, :const) || return
     generic_check(x, "Threads.nthreads()", "Threads.nthreads() should not be used in a constant variable.")
 end
+
+check(::CFunction_Extension, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro @cfunction should not be used.")

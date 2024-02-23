@@ -41,6 +41,17 @@ end
             "Line 2, column 5: Macro @spawn should be used instead of @async.")
     end
 
+    @testset "@cfunction" begin
+        source = """
+            function f()
+                @cfunction(_readwrite_cb, Cvoid, (Ptr{Cvoid}, ))
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 5: Macro @cfunction should not be used.")
+    end
+
     @testset "Locally disabling lint" begin
         @testset "lint-disable-lint" begin
             @test !lint_has_error_test("""
