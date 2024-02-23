@@ -265,6 +265,17 @@ end
             "Line 2, column 23: pointer_from_objref should not be used")
     end
 
+    @testset "Semaphore" begin
+        source = """
+            const sem = Semaphore(5)
+            function foo()
+                return Semaphore(10)
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 1, column 13: Semaphore should be used with extreme caution.")
+    end
 
 end
 
@@ -298,6 +309,7 @@ end
 
     @test t("foo(x, y, z)", "foo(hole_variable_star)")
 
+    @test t("Semaphore(10)", "Semaphore(hole_variable)")
     # Ideally, the next line should pass.
     # @test t("foo(x, y, z)", "foo(hole_variable, hole_variable, hole_variable, hole_variable_star)")
 

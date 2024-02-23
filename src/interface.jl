@@ -27,7 +27,7 @@ function lint_string(s::String, server = setup_server(); gethints = false)
     setroot(f, f)
     setfile(server, "", f)
     semantic_pass(f)
-    check_all(f.cst, lint_options, env)
+    check_all(f.cst, LintOptions(), env)
     if gethints
         hints = []
         for (offset, x) in collect_hints(f.cst, env)
@@ -201,7 +201,7 @@ function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
     println(io, hint)
 end
 
-function print_summary(::PlainFormat, io::IO, nb_hints::Int64)
+function print_summary(::PlainFormat, io::IO, nb_hints::Int)
     if iszero(nb_hints)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
@@ -225,7 +225,7 @@ function print_hint(::MarkdownFormat, io::IO, coordinates::String, hint::String)
     print(io, " - **$coordinates** $hint\n")
 end
 
-function print_summary(::MarkdownFormat, io::IO, nb_hints::Int64)
+function print_summary(::MarkdownFormat, io::IO, nb_hints::Int)
     if iszero(nb_hints)
         print(io, "🎉No potential threats were found.👍\n\n")
     else
