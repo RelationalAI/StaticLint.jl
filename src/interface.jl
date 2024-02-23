@@ -27,7 +27,7 @@ function lint_string(s::String, server = setup_server(); gethints = false)
     setroot(f, f)
     setfile(server, "", f)
     semantic_pass(f)
-    check_all(f.cst, lint_options, env)
+    check_all(f.cst, LintOptions(), env)
     if gethints
         hints = []
         for (offset, x) in collect_hints(f.cst, env)

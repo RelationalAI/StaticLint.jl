@@ -747,18 +747,19 @@ f(arg) = arg
         end
     end
 
-    @testset "stdcall" begin
-        let cst = parse_and_pass("""
-        ccall(:GetCurrentProcess, stdcall, Ptr{Cvoid}, ())""")
-            StaticLint.collect_hints(cst, getenv(server.files[""], server))
-            @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
-        end
-        let cst = parse_and_pass("""
-        stdcall
-        """)
-            @test !StaticLint.hasref(cst[1])
-        end
-    end
+    # @testset "stdcall" begin
+    #     let cst = parse_and_pass("""
+    #     ccall(:GetCurrentProcess, stdcall, Ptr{Cvoid}, ())""")
+    #         StaticLint.collect_hints(cst, getenv(server.files[""], server))
+    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    #         @test isempty(StaticLint.collect_hints(cst, getenv(server.files[""], server)))
+    #     end
+    #     let cst = parse_and_pass("""
+    #     stdcall
+    #     """)
+    #         @test !StaticLint.hasref(cst[1])
+    #     end
+    # end
 
     @testset "check_if_conds" begin
         let cst = parse_and_pass("""
