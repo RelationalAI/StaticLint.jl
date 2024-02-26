@@ -30,10 +30,21 @@ end
 # end
 
 @testset "forbidden macros" begin
-    @testset "@async" begin
+    @testset "@async 01" begin
         source = """
             function f()
                 @async 1 + 2
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 5: Macro @spawn should be used instead of @async.")
+    end
+
+    @testset "@async 02" begin
+        source = """
+            function f()
+                Threads.@async 1 + 2
             end
             """
         @test lint_has_error_test(source)

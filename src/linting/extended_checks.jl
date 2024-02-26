@@ -81,7 +81,11 @@ function check(::Finalizer_Extention, x::EXPR)
     generic_check(x, "finalizer(hole_variable) do hole_variable hole_variable_star end", error_msg)
 end
 
-check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
+function check(::Async_Extention, x::EXPR)
+    generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
+    generic_check(x, "Threads.@async hole_variable", "Macro @spawn should be used instead of @async.")
+end
+
 check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "ccall should not be used.")
 check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", "pointer_from_objref should not be used.")
 
