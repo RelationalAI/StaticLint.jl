@@ -172,7 +172,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 4, column 5: finalize(_,_) should not be used.")
+            "Line 4, column 5: finalizer(_,_) should not be used.")
 
     end
     @testset "finalizer without do-end" begin
@@ -183,7 +183,18 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: finalize(_,_) should not be used.")
+            "Line 2, column 5: finalizer(_,_) should not be used.")
+    end
+
+    @testset "finalizer with do-end 02" begin
+        source = """
+            finalizer("hello") do x
+                println("hello ")
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 1, column 1: finalizer(_,_) should not be used.")
     end
 
     @testset "ccall" begin
@@ -302,6 +313,12 @@ end
     # Ideally, the next line should pass.
     # @test t("foo(x, y, z)", "foo(hole_variable, hole_variable, hole_variable, hole_variable_star)")
 
+    source = """
+            finalizer("hello") do x
+                println("hello ")
+            end
+            """
+    @test t(source, "finalizer(hole_variable) do hole_variable hole_variable_star end")
 end
 
 @testset "offset to line" begin
@@ -510,7 +527,7 @@ end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-                @test iszero(StaticLint.run_lint(dir))
+            @test iszero(StaticLint.run_lint(dir))
         end
     end
 end
