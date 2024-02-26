@@ -533,7 +533,7 @@ end
         @test result_matching
     end
 
-    @testset "No result" begin
+    @testset "No result with modified julia file" begin
         output_file = tempname()
         StaticLint.generate_report(String[], output_file)
         local result
@@ -549,7 +549,69 @@ end
             """
         result_matching = !isnothing(match(expected, result))
         @test result_matching
+    end
 
+    @testset "No result with no julia file" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.txt")
+            open(file1, "w") do io1
+                write(io1, "Hello World\n")
+                flush(io1)
+
+                output_file = tempname()
+                StaticLint.generate_report([file1], output_file)
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+
+
+                expected = r"""
+                    ## Static code analyzer report
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    Report creation time \(UTC\): \H+
+                    No Julia file is modified or added in this PR.
+                    """
+                result_matching = !isnothing(match(expected, result))
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "Report generation of two files with no errors" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            file2 = joinpath(dir, "bar.jl")
+            open(file1, "w") do io1
+                open(file2, "w") do io2
+                    write(io1, "function f()\n  @spawn 1 + 1\nend\n")
+                    write(io2, "function g()\n  @spawn 1 + 1\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    output_file = tempname()
+                    StaticLint.generate_report([file1, file2], output_file)
+
+                    local result
+                    open(output_file) do oo
+                        result = read(oo, String)
+                    end
+
+                    expected = r"""
+                        ## Static code analyzer report
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        Report creation time \(UTC\): \H+
+                        🎉No potential threats are found over 2 files.👍
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
     end
 end
 
