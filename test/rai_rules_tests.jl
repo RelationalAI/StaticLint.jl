@@ -506,6 +506,25 @@ end
         end
         @test result_matching
     end
+
+    @testset "No result" begin
+        output_file = tempname()
+        StaticLint.generate_report(String[], output_file)
+        local result
+        open(output_file) do oo
+            result = read(oo, String)
+        end
+
+        expected = r"""
+            ## Static code analyzer report
+            \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+            Report creation time \(UTC\): \H+
+            No Julia file is modified or added in this PR.
+            """
+        result_matching = !isnothing(match(expected, result))
+        @test result_matching
+
+    end
 end
 
 @testset "Running on a directory" begin

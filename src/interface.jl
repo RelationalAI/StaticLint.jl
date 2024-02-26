@@ -317,10 +317,7 @@ function generate_report(filenames::Vector{String}, output_filename::String)
                                     formatter=MarkdownFormat())
         end
         if iszero(nb_of_error_found)
-            println(output_io, "No result produced by \
-            [StaticLint.jl](https://github.com/RelationalAI/StaticLint.jl) \
-            static analyzer\nUTC time=$(now())\n\
-            No Julia file is modified or added in this PR.")
+            println(output_io, "No Julia file is modified or added in this PR.")
         else
             if iszero(nb_of_error_found)
                 print(output_io, "🎉No potential threats are found over $(length(filenames)) files.👍\n\n")
