@@ -215,9 +215,10 @@ function print_footer(::PlainFormat, io::IO)
 end
 
 function print_header(::MarkdownFormat, io::IO, rootpath::String)
-    println(io, "**Output of the [StaticLint.jl code analyzer]\
-                (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
-                UTC time: ($(now()))")
+    # println(io, "**Output of the [StaticLint.jl code analyzer]\
+    #             (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
+    #             UTC time: ($(now()))")
+    return
 end
 
 print_footer(::MarkdownFormat, io::IO) = nothing
@@ -226,12 +227,13 @@ function print_hint(::MarkdownFormat, io::IO, coordinates::String, hint::String)
 end
 
 function print_summary(::MarkdownFormat, io::IO, nb_hints::Int)
-    if iszero(nb_hints)
-        print(io, "🎉No potential threats were found.👍\n\n")
-    else
-        plural = nb_hints > 1 ? "s are" : " is"
-        println(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
-    end
+    # if iszero(nb_hints)
+    #     print(io, "🎉No potential threats were found.👍\n\n")
+    # else
+    #     plural = nb_hints > 1 ? "s are" : " is"
+    #     println(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
+    # end
+    return
 end
 
 """
@@ -304,6 +306,9 @@ function generate_report(filenames::Vector{String}, output_filename::String)
         local nb_of_error_found = 0
 
         println(output_io, "## Static code analyzer report")
+        println(output_io, "**Output of the [StaticLint.jl code analyzer]\
+            (https://github.com/RelationalAI/StaticLint.jl)**\n\
+            Report creation time (UTC): ($(now()))")
         for filename in filenames
             nb_of_error_found += StaticLint.run_lint(
                                     filename;
@@ -317,7 +322,13 @@ function generate_report(filenames::Vector{String}, output_filename::String)
             static analyzer\nUTC time=$(now())\n\
             No Julia file is modified or added in this PR.")
         else
-            println(output_io, "**In total, $(nb_of_error_found) errors are found**")
+            if iszero(nb_of_error_found)
+                print(output_io, "🎉No potential threats are found over $(length(filenames)) files.👍\n\n")
+            elseif nb_of_error_found == 1
+                println(output_io, "🚨**In total, 1 error is found over $(length(filenames)) files**🚨")
+            else
+                println(output_io, "🚨**In total, $(nb_of_error_found) errors are found over $(length(filenames)) files**🚨")
+            end
         end
     end
 end

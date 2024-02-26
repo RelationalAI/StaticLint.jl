@@ -375,7 +375,6 @@ end
         expected = r"""
              - \*\*Line 1, column 11:\*\* Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
              - \*\*Line 1, column 11:\*\* Missing reference at offset 10 of \H+
-            🚨\*\*2 potential threats are found\*\*🚨
             """
         @test !isnothing(match(expected, result))
     end
@@ -387,7 +386,6 @@ end
 
         expected = r"""
              - \*\*Line 1, column 11:\*\* Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
-            🚨\*\*1 potential threat is found\*\*🚨
             """
         @test !isnothing(match(expected, result))
     end
@@ -407,6 +405,7 @@ end
 
 @testset "Linting multiple files" begin
     @testset "No errors" begin
+        local result_is_empty = false
         mktempdir() do dir
             open(joinpath(dir, "foo.jl"), "w") do io1
                 open(joinpath(dir, "bar.jl"), "w") do io2
@@ -420,24 +419,15 @@ end
                     StaticLint.run_lint(dir; io=str, formatter=StaticLint.MarkdownFormat())
 
                     result = String(take!(str))
-
-                    expected = r"""
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
-                        UTC time: \(\H+\)
-                        🎉No potential threats were found.👍
-
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
-                        UTC time: \(\H+\)
-                        🎉No potential threats were found.👍
-                        """
-                    @test !isnothing(match(expected, result))
+                    result_is_empty = isempty(result)
                 end
             end
         end
-        @test true
+        @test result_is_empty
     end
 
     @testset "Two files with errors" begin
+        local result_matching = false
         mktempdir() do dir
             open(joinpath(dir, "foo.jl"), "w") do io1
                 open(joinpath(dir, "bar.jl"), "w") do io2
@@ -453,26 +443,57 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint\.jl\) on file \H+\*\*
-                        UTC time: \(\H+\)
                          - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
-                        🚨\*\*1 potential threat is found\*\*🚨
-
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github.com/RelationalAI/StaticLint.jl\) on file \H+\*\*
-                        UTC time: \(\H+\)
                          - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
-                        🚨\*\*1 potential threat is found\*\*🚨
                         """
-                    @test !isnothing(match(expected, result))
+                    result_matching = !isnothing(match(expected, result))
                 end
             end
         end
-        @test true
+        @test result_matching
+    end
+
+    @testset "Report generation of two files with errors" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            file2 = joinpath(dir, "bar.jl")
+            open(file1, "w") do io1
+                open(file2, "w") do io2
+                    write(io1, "function f()\n  @async 1 + 1\nend\n")
+                    write(io2, "function g()\n  finalizer(\"hello\") do x nothing\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    output_file = tempname()
+                    StaticLint.generate_report([file1, file2], output_file)
+
+                    local result
+                    open(output_file) do oo
+                        result = read(oo, String)
+                    end
+
+                    expected = r"""
+                        ## Static code analyzer report
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        Report creation time \(UTC\): \H+
+                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* finalizer\(_,_\) should not be used\. at offset 15 of \H+
+                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. at offset 37 of \H+
+                        🚨\*\*In total, 3 errors are found over 2 files\*\*🚨
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
     end
 end
 
 @testset "Running on a directory" begin
     @testset "Non empty directory" begin
+        local r = 0
         formatters = [StaticLint.PlainFormat(), StaticLint.MarkdownFormat()]
         for formatter in formatters
             mktempdir() do dir
@@ -480,17 +501,16 @@ end
                     write(io, "function f()\n  @async 1 + 1\nend\n")
                     flush(io)
                     str = IOBuffer()
-                    StaticLint.run_lint(dir; io=str, formatter)
+                    r += StaticLint.run_lint(dir; io=str, formatter)
                 end
             end
         end
-        @test true
+        @test r == 2
     end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-                StaticLint.run_lint(dir)
+                @test iszero(StaticLint.run_lint(dir))
         end
-        @test true
     end
 end
