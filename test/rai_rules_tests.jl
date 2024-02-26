@@ -339,6 +339,12 @@ end
     # Ideally, the next line should pass.
     # @test t("foo(x, y, z)", "foo(hole_variable, hole_variable, hole_variable, hole_variable_star)")
 
+    source = """
+            finalizer("hello") do x
+                println("hello ")
+            end
+            """
+    @test t(source, "finalizer(hole_variable) do hole_variable hole_variable_star end")
 end
 
 @testset "offset to line" begin
@@ -526,7 +532,7 @@ end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-                StaticLint.run_lint(dir)
+            StaticLint.run_lint(dir)
         end
         @test true
     end
