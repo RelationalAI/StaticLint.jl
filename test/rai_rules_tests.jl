@@ -190,11 +190,24 @@ end
         source = """
             finalizer("hello") do x
                 println("hello ")
+                println("world")
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
             "Line 1, column 1: finalizer(_,_) should not be used.")
+    end
+
+    @testset "destructor with do-end 02" begin
+        source = """
+            destructor("hello") do x
+                println("hello ")
+                println("world")
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 1, column 1: Destructors should be used with extreme caution")
     end
 
     @testset "ccall" begin
@@ -277,6 +290,19 @@ end
             "Line 1, column 13: Semaphore should be used with extreme caution.")
     end
 
+    @testset "ReentrantLock" begin
+        source = """
+            const lock = ReentrantLock()
+            function foo()
+                lock2 = ReentrantLock()
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 13: ReentrantLock should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 1, column 14: ReentrantLock should be used with extreme caution")
+    end
 end
 
 @testset "Comparison" begin

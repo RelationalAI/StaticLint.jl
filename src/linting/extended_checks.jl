@@ -48,7 +48,8 @@ struct NThreads_Extention <: ExtendedRule end
 struct Finalizer_Extention <: ExtendedRule end
 struct CFunction_Extension <: ExtendedRule end
 struct Semaphore_Extension <: ExtendedRule end
-
+struct Destructor_Extension <: ExtendedRule end
+struct ReentrantLock_Extension <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -77,7 +78,7 @@ check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
 function check(::Finalizer_Extention, x::EXPR)
     error_msg = "finalizer(_,_) should not be used."
     generic_check(x, "finalizer(hole_variable, hole_variable)", error_msg)
-    generic_check(x, "finalizer(hole_variable) do hole_variable hole_variable end", error_msg)
+    generic_check(x, "finalizer(hole_variable) do hole_variable hole_variable_star end", error_msg)
 end
 
 check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
@@ -93,3 +94,11 @@ end
 check(::CFunction_Extension, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro @cfunction should not be used.")
 
 check(::Semaphore_Extension, x::EXPR) = generic_check(x, "Semaphore(hole_variable)", "Semaphore should be used with extreme caution.")
+check(::ReentrantLock_Extension, x::EXPR) = generic_check(x, "ReentrantLock()", "ReentrantLock should be used with extreme caution.")
+
+function check(::Destructor_Extension, x::EXPR)
+    error_msg = "Destructors should be used with extreme caution."
+    generic_check(x, "destructor(hole_variable, hole_variable)", error_msg)
+    generic_check(x, "destructor(hole_variable) do hole_variable hole_variable_star end", error_msg)
+end
+
