@@ -316,7 +316,9 @@ function generate_report(filenames::Vector{String}, output_filename::String)
                                     filters=essential_filters,
                                     formatter=MarkdownFormat())
         end
-        if iszero(nb_of_error_found)
+
+        has_julia_file = any(n->endswith(n, ".jl"), filenames)
+        if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
             if iszero(nb_of_error_found)
