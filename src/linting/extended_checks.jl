@@ -53,6 +53,7 @@ struct ReentrantLock_Extension <: ExtendedRule end
 struct SpinLock_Extension <: ExtendedRule end
 struct Lock_Extension <: ExtendedRule end
 struct Unlock_Extension <: ExtendedRule end
+struct Yield_Extension <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -128,3 +129,4 @@ function check(::Lock_Extension, x::EXPR)
 end
 
 check(::Unlock_Extension, x::EXPR) = generic_check(x, "unlock(hole_variable)", "`unlock` should be used with extreme caution.")
+check(::Yield_Extension, x::EXPR) = generic_check(x, "yield()", "`yield` should be used with extreme caution.")

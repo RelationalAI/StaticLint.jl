@@ -372,6 +372,20 @@ end
         @test lint_test(source,
             "Line 15, column 9: `unlock` should be used with extreme caution.")
     end
+
+    @testset "yield" begin
+        source = """
+            function wait_for_cooldown(count::UInt64, counts::HistogramCounts)
+                while count != @atomic counts.total_observations
+                    yield()
+                end
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 9: `yield` should be used with extreme caution.")
+    end
+
 end
 
 @testset "Comparison" begin
