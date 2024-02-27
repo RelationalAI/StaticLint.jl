@@ -330,6 +330,32 @@ end
         @test lint_test(source,
             "Line 6, column 19: SpinLock should be used with extreme caution.")
     end
+
+    @testset "unlock" begin
+        source = """
+            function clear(fs::SimulatedFs)
+                if fs.noop_mode
+                    return nothing
+                end
+                for partition in fs.partitions
+                    lock = trylock(partition.lock)
+                    lock || error("SimFs partition locked on clear")
+                    for (k, entry) in partition.entries
+                        lock = trylock(entry.lock)
+                        lock || error("SimFs entry locked on clear")
+                        Blobs.free(entry.buf.data)
+                        unlock(entry.lock)
+                    end
+                    empty!(partition.entries)
+                    unlock(partition.lock)
+                end
+                @atomic fs.used_bytes = 0
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 15, column 9: `unlock` should be used with extreme caution.")
+    end
 end
 
 @testset "Comparison" begin
@@ -372,6 +398,8 @@ end
             end
             """
     @test t(source, "finalizer(hole_variable) do hole_variable hole_variable_star end")
+
+    @test t("unlock(hole_variable)", "unlock(12)")
 end
 
 @testset "offset to line" begin
