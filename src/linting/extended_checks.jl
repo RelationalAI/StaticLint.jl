@@ -52,6 +52,7 @@ struct Destructor_Extension <: ExtendedRule end
 struct ReentrantLock_Extension <: ExtendedRule end
 struct SpinLock_Extension <: ExtendedRule end
 struct Lock_Extension <: ExtendedRule end
+struct Unlock_Extension <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -104,7 +105,6 @@ function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
 end
 
 check(::CFunction_Extension, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
-
 check(::Semaphore_Extension, x::EXPR) = generic_check(x, "Semaphore(hole_variable)", "`Semaphore` should be used with extreme caution.")
 check(::ReentrantLock_Extension, x::EXPR) = generic_check(x, "ReentrantLock()", "`ReentrantLock` should be used with extreme caution.")
 
@@ -127,3 +127,4 @@ function check(::Lock_Extension, x::EXPR)
     generic_check(x, "Base.@lock hole_variable hole_variable", msg)
 end
 
+check(::Unlock_Extension, x::EXPR) = generic_check(x, "unlock(hole_variable)", "`unlock` should be used with extreme caution.")
