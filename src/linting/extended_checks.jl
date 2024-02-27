@@ -62,8 +62,8 @@ const check_cache = Dict{String, CSTParser.EXPR}()
 const error_msgs = Dict{String, String}()
 
 function reset_static_lint_caches()
-    check_cache = Dict{String, CSTParser.EXPR}()
-    error_msgs = Dict{String, String}()
+    empty!(check_cache)
+    empty!(error_msgs)
     return nothing
 end
 
