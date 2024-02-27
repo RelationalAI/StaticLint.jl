@@ -38,7 +38,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: Macro @spawn should be used instead of @async.")
+            "Line 2, column 5: Macro `@spawn` should be used instead of `@async`.")
     end
 
     @testset "@async 02" begin
@@ -49,7 +49,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: Macro @spawn should be used instead of @async.")
+            "Line 2, column 5: Macro `@spawn` should be used instead of `@async`.")
     end
 
     @testset "@cfunction" begin
@@ -60,8 +60,23 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: Macro @cfunction should not be used.")
+            "Line 2, column 5: Macro `@cfunction` should not be used.")
     end
+
+    @testset "@lock" begin
+        source = """
+        function mark_transaction_as_database_creation!(kv::SpcsKV, transaction_id::String)
+            @lock kv.latch begin
+                push!(kv.create_database_transactions, transaction_id)
+            end
+            return nothing
+        end
+        """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 5: `@lock` should be used with extreme caution")
+    end
+
 
     @testset "Locally disabling lint" begin
         @testset "lint-disable-lint" begin
@@ -159,7 +174,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 1, column 11: Threads.nthreads() should not be used in a constant variable.")
+            "Line 1, column 11: `Threads.nthreads()` should not be used in a constant variable.")
     end
 
     @testset "nthreads() not as a const" begin
@@ -183,9 +198,10 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 4, column 5: finalizer(_,_) should not be used.")
+            "Line 4, column 5: `finalizer(_,_)` should not be used.")
 
     end
+
     @testset "finalizer without do-end" begin
         source = """
             function f(x)
@@ -194,7 +210,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: finalizer(_,_) should not be used.")
+            "Line 2, column 5: `finalizer(_,_)` should not be used.")
     end
 
     @testset "finalizer with do-end 02" begin
@@ -206,7 +222,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 1, column 1: finalizer(_,_) should not be used.")
+            "Line 1, column 1: `finalizer(_,_)` should not be used.")
     end
 
     @testset "destructor with do-end 02" begin
@@ -231,7 +247,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 3, column 5: ccall should not be used.")
+            "Line 3, column 5: `ccall` should be used with extreme caution.")
     end
 
     @testset "ccall 02" begin
@@ -248,7 +264,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 4, column 5: ccall should not be used.")
+            "Line 4, column 5: `ccall` should be used with extreme caution.")
     end
 
     @testset "pointer_from_objref 01" begin
@@ -259,7 +275,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 12: pointer_from_objref should not be used.")
+            "Line 2, column 12: `pointer_from_objref` should be used with extreme caution.")
     end
 
     @testset "pointer_from_objref 02" begin
@@ -275,7 +291,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 5, column 15: pointer_from_objref should not be used.")
+            "Line 5, column 15: `pointer_from_objref` should be used with extreme caution.")
     end
 
     @testset "pointer_from_objref 03" begin
@@ -286,7 +302,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 23: pointer_from_objref should not be used")
+            "Line 2, column 23: `pointer_from_objref` should be used with extreme caution.")
     end
 
     @testset "Semaphore" begin
@@ -298,7 +314,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 1, column 13: Semaphore should be used with extreme caution.")
+            "Line 1, column 13: `Semaphore` should be used with extreme caution.")
     end
 
     @testset "ReentrantLock" begin
@@ -310,9 +326,9 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 3, column 13: ReentrantLock should be used with extreme caution.")
+            "Line 3, column 13: `ReentrantLock` should be used with extreme caution.")
         @test lint_test(source,
-            "Line 1, column 14: ReentrantLock should be used with extreme caution")
+            "Line 1, column 14: `ReentrantLock` should be used with extreme caution.")
     end
 
     @testset "SpinLock" begin
@@ -328,7 +344,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 6, column 19: SpinLock should be used with extreme caution.")
+            "Line 6, column 19: `SpinLock` should be used with extreme caution.")
     end
 end
 
@@ -415,7 +431,7 @@ end
 
         expected = r"""
             ---------- \H+
-            Line 1, column 11: Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
+            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             Line 1, column 11: Missing reference at offset 10 of \H+
             2 potential threats are found
             ----------
@@ -430,7 +446,7 @@ end
 
         expected = r"""
             ---------- \H+
-            Line 1, column 11: Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
+            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             1 potential threat is found
             ----------
             """
@@ -443,7 +459,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*Line 1, column 11:\*\* Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
+             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
              - \*\*Line 1, column 11:\*\* Missing reference at offset 10 of \H+
             """
         @test !isnothing(match(expected, result))
@@ -455,7 +471,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*Line 1, column 11:\*\* Threads.nthreads\(\) should not be used in a constant variable\. at offset 10 of \H+
+             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -513,8 +529,8 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
-                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
@@ -548,8 +564,8 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
                         Report creation time \(UTC\): \H+
-                         - \*\*Line 2, column 3:\*\* Macro @spawn should be used instead of @async\. at offset 15 of \H+
-                         - \*\*Line 2, column 3:\*\* finalizer\(_,_\) should not be used\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. at offset 15 of \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. at offset 37 of \H+
                         🚨\*\*In total, 3 errors are found over 2 files\*\*🚨
                         """

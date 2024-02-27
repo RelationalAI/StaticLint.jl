@@ -1,6 +1,6 @@
 # StaticLint.jl
 
-StaticLint is a static code analyzer for Julia. It runs some rules on Julia source code. 
+StaticLint is a static code analyzer for Julia. It runs some rules on Julia source code.
 
 ## Basic usage
 
@@ -9,7 +9,7 @@ There are several ways to use StaticLint.jl. Here are a few usage examples:
 ```Julia
 StaticLint.run_lint_on_text("function f() @async 1 + 2 end ");
 ---------- /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_m34buxG5sl.jl
-Line 1, column 14: Macro @spawn should be used instead of @async. at offset 13 of /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_m34buxG5sl.jl
+Line 1, column 14: Macro `@spawn` should be used instead of `@async`. at offset 13 of /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_m34buxG5sl.jl
 1 potential threat is found
 ----------
 ```
@@ -31,7 +31,7 @@ StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/RAICode.
 
 Note that files directly and indirectly included by `RAICode.jl` are also analyzed.
 
-When a directory is provided to `run_lint`, then StaticLint will look for Julia files. E.g., 
+When a directory is provided to `run_lint`, then StaticLint will look for Julia files. E.g.,
 
 ```Julia
 StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/")
@@ -52,7 +52,7 @@ Adding a new rule is easy. Only the file `src/linting/extended_checks.jl` has to
 Here is an example of `check`:
 
 ```Julia
-check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro @spawn should be used instead of @async.")
+check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
 ```
 
 The `generic_check` function takes as a second parameter the expression to be searched. The template string `"@async hole_variable"` means that the expression `x` will be matched against the template. The pseudo variable `hole_variable` matches everything. In case you want to match any arbitrary number of arguments, you can use `hole_variable_star` (look at the test for concrete examples).
@@ -64,7 +64,7 @@ In case the expression must be matched in a particular context, e.g., only with 
 function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
     # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
     haskey(markers, :const) || return
-    generic_check(x, "Threads.nthreads()", "Threads.nthreads() should not be used in a constant variable.")
+    generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
 end
 ```
 
@@ -89,6 +89,5 @@ end
 In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
 
-## Fork 
+## Fork
 This repository is a fork of https://github.com/julia-vscode/StaticLint.jl . The decision to fork this project instead of directly contributing to it was not taken lightly. First, the julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such using the original StaticLint with our RAI-specific rules was not an easy or even feasible task.
-
