@@ -50,6 +50,7 @@ struct CFunction_Extension <: ExtendedRule end
 struct Semaphore_Extension <: ExtendedRule end
 struct Destructor_Extension <: ExtendedRule end
 struct ReentrantLock_Extension <: ExtendedRule end
+struct SpinLock_Extension <: ExtendedRule end
 
 const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
 
@@ -106,3 +107,9 @@ function check(::Destructor_Extension, x::EXPR)
     generic_check(x, "destructor(hole_variable) do hole_variable hole_variable_star end", error_msg)
 end
 
+function check(::SpinLock_Extension, x::EXPR)
+    msg = "SpinLock should be used with extreme caution."
+    generic_check(x, "SpinLock()", msg)
+    generic_check(x, "Threads.SpinLock()", msg)
+    generic_check(x, "Base.Threads.SpinLock()", msg)
+end

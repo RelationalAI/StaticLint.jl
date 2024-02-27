@@ -314,6 +314,22 @@ end
         @test lint_test(source,
             "Line 1, column 14: ReentrantLock should be used with extreme caution")
     end
+
+    @testset "SpinLock" begin
+        source = """
+            struct _SyncDict{Dict}
+                lock::Base.Threads.SpinLock
+                dict::Dict
+
+                function _SyncDict{Dict}() where {Dict}
+                    new{Dict}(Base.Threads.SpinLock(), Dict())
+                end
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 6, column 19: SpinLock should be used with extreme caution.")
+    end
 end
 
 @testset "Comparison" begin
