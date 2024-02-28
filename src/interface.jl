@@ -337,11 +337,10 @@ function generate_report(filenames::Vector{String}, output_filename::String)
     @info "StaticLint report" report_as_string errors_count files_count
 
     event = Dict(
-        :id => uuid4(),
         :source => "StaticLint",
         :specversion => "1.0",
         :type => "result",
-        :time => Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
+        :time => string(now(UTC)), #Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
         :data => Dict(:report_as_string=>report_as_string, :files_count=>files_count)
     )
     println(stdout, JSON3.write(event))
