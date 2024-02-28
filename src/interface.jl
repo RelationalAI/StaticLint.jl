@@ -1,4 +1,5 @@
 using Dates
+using JSON3
 
 function setup_server(
     env = dirname(SymbolServer.Pkg.Types.Context().env.project_file),
@@ -334,4 +335,13 @@ function generate_report(filenames::Vector{String}, output_filename::String)
 
     report_as_string = open(output_filename) do io read(io, String) end
     @info "StaticLint report" report_as_string errors_count files_count
+
+    event = Dict(
+        :source => "StaticLint",
+        :specversion => "1.0",
+        :type => "result",
+        :time => string(now(UTC)), #Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
+        :data => Dict(:report_as_string=>report_as_string, :files_count=>files_count)
+    )
+    println(stdout, JSON3.write(event))
 end
