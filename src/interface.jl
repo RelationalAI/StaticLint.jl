@@ -88,17 +88,17 @@ const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.
 
 
 # Return (line, column) for a given offset in a source
-function convert_offset_to_line_from_filename(offset::Int64, filename::String)
+function convert_offset_to_line_from_filename(offset::Int, filename::String)
     all_lines = open(io->readlines(io), filename)
     return convert_offset_to_line_from_lines(offset, all_lines)
 end
 
-function convert_offset_to_line(offset::Int64, source::String)
+function convert_offset_to_line(offset::Int, source::String)
     return convert_offset_to_line_from_lines(offset, split(source, "\n"))
 end
 
 
-function convert_offset_to_line_from_lines(offset::Int64, all_lines)
+function convert_offset_to_line_from_lines(offset::Int, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_index = 1
