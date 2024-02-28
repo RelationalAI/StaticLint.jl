@@ -373,19 +373,34 @@ end
             "Line 15, column 9: `unlock` should be used with extreme caution.")
     end
 
-    @testset "yield" begin
+    @testset "yield, sleep, map" begin
         source = """
             function wait_for_cooldown(count::UInt64, counts::HistogramCounts)
                 while count != @atomic counts.total_observations
                     yield()
+                    sleep(0.011)
                 end
+            end
+
+            function use_of_map()
+                s = open("/tmp/mmap.bin")
+                m = read(s, Int)
+                n = read(s, Int)
+                A2 = mmap(s, Matrix{Int}, (m,n))
+                A3 = Mmap.mmap(s, Matrix{Int}, (m,n))
+
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
             "Line 3, column 9: `yield` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 4, column 9: `sleep` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 12, column 10: `mmap` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 13, column 10: `mmap` should be used with extreme caution.")
     end
-
 end
 
 @testset "Comparison" begin

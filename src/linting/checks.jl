@@ -134,7 +134,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     check_const(x)
 
     if opts.extended
-        for T in all_extended_rule_types
+        for T in all_extended_rule_types[]
             check(T(), x, markers)
         end
     end

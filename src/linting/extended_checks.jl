@@ -54,8 +54,10 @@ struct SpinLock_Extension <: ExtendedRule end
 struct Lock_Extension <: ExtendedRule end
 struct Unlock_Extension <: ExtendedRule end
 struct Yield_Extension <: ExtendedRule end
+struct Sleep_Extension <: ExtendedRule end
+struct Mmap_Extension <: ExtendedRule end
 
-const all_extended_rule_types = InteractiveUtils.subtypes(ExtendedRule)
+const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
 # template -> EXPR to be compared
 const check_cache = Dict{String, CSTParser.EXPR}()
@@ -66,6 +68,7 @@ const error_msgs = Dict{String, String}()
 function reset_static_lint_caches()
     empty!(check_cache)
     empty!(error_msgs)
+    all_extended_rule_types[] = InteractiveUtils.subtypes(ExtendedRule)
     return nothing
 end
 
@@ -130,3 +133,9 @@ end
 
 check(::Unlock_Extension, x::EXPR) = generic_check(x, "unlock(hole_variable)", "`unlock` should be used with extreme caution.")
 check(::Yield_Extension, x::EXPR) = generic_check(x, "yield()", "`yield` should be used with extreme caution.")
+check(::Sleep_Extension, x::EXPR) = generic_check(x, "sleep(hole_variable)", "`sleep` should be used with extreme caution.")
+function check(::Mmap_Extension, x::EXPR)
+    generic_check(x, "mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
+    generic_check(x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
+end
+
