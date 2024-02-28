@@ -302,15 +302,16 @@ function generate_report(filenames::Vector{String}, output_filename::String)
         return
     end
 
-    open(output_filename, "w") do output_io
-        local nb_of_error_found = 0
+    local errors_count = 0
+    local files_count = length(filenames)
 
+    open(output_filename, "w") do output_io
         println(output_io, "## Static code analyzer report")
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
             (https://github.com/RelationalAI/StaticLint.jl)**\n\
             Report creation time (UTC): ($(now()))")
         for filename in filenames
-            nb_of_error_found += StaticLint.run_lint(
+            errors_count += StaticLint.run_lint(
                                     filename;
                                     io=output_io,
                                     filters=essential_filters,
@@ -321,13 +322,16 @@ function generate_report(filenames::Vector{String}, output_filename::String)
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
-            if iszero(nb_of_error_found)
+            if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(filenames)) files.👍\n\n")
-            elseif nb_of_error_found == 1
+            elseif errors_count == 1
                 println(output_io, "🚨**In total, 1 error is found over $(length(filenames)) files**🚨")
             else
-                println(output_io, "🚨**In total, $(nb_of_error_found) errors are found over $(length(filenames)) files**🚨")
+                println(output_io, "🚨**In total, $(errors_count) errors are found over $(files_count) files**🚨")
             end
         end
     end
+
+    report_as_string = open(output_filename) do io read(io, String) end
+    @info "StaticLint report" report_as_string errors_count files_count
 end
