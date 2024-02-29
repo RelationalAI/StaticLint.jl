@@ -374,7 +374,7 @@ end
             "Line 15, column 9: `unlock` should be used with extreme caution.")
     end
 
-    @testset "yield, sleep, map" begin
+    @testset "yield, sleep, map, Future, wait" begin
         source = """
             function wait_for_cooldown(count::UInt64, counts::HistogramCounts)
                 while count != @atomic counts.total_observations
@@ -389,7 +389,11 @@ end
                 n = read(s, Int)
                 A2 = mmap(s, Matrix{Int}, (m,n))
                 A3 = Mmap.mmap(s, Matrix{Int}, (m,n))
+                fut1 = Future{Any}() do f nothing end
+                fut2 = Future{Nothing}(()->nothing)
+                fut3 = Future(()->nothing)
 
+                wait(TaskTreeJoin())
             end
             """
         @test lint_has_error_test(source)
@@ -400,8 +404,14 @@ end
         @test lint_test(source,
             "Line 12, column 10: `mmap` should be used with extreme caution.")
         @test lint_test(source,
-            "Line 13, column 10: `mmap` should be used with extreme caution.")
-    end
+            "Line 14, column 12: `Future` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 15, column 12: `Future` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 16, column 12: `Future` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 18, column 5: `wait` should be used with extreme caution.")
+        end
 end
 
 @testset "Comparison" begin
@@ -446,6 +456,13 @@ end
     @test t(source, "finalizer(hole_variable) do hole_variable hole_variable_star end")
 
     @test t("unlock(hole_variable)", "unlock(12)")
+
+    # Generics
+    @test t("Future{Nothing}()", "Future{hole_variable}()")
+    @test t("Future{T}()", "Future{hole_variable}(hole_variable_star)")
+    @test t("Future{T}(()->nothing)", "Future{hole_variable}(hole_variable_star)")
+    @test !t("Future()", "Future{hole_variable}(hole_variable_star)")
+    @test !t("Future{Any}() do f nothing end", "Future{hole_variable}(hole_variable_star)")
 end
 
 @testset "offset to line" begin
@@ -461,6 +478,7 @@ end
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
     @test convert_offset_to_line(43, source) == (2, 30, nothing)
     @test convert_offset_to_line(47, source) == (3, 4, nothing)
+
 end
 
 @testset "Should be filtered" begin
