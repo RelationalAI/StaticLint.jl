@@ -299,8 +299,9 @@ function print_datadog_report(
         :specversion => "1.0",
         :type => "result",
         :time => string(now(UTC)), #Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
-        :data => Dict(:report_as_string=>report_as_string,
-                    :files_count=>files_count,
+        :data => Dict(
+                    :report_as_string=>report_as_string,
+                    :files_count => files_count,
                     :errors_count => errors_count)
     )
     println(json_output, JSON3.write(event))
