@@ -478,6 +478,7 @@ end
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
     @test convert_offset_to_line(43, source) == (2, 30, nothing)
     @test convert_offset_to_line(47, source) == (3, 4, nothing)
+
 end
 
 @testset "Should be filtered" begin
