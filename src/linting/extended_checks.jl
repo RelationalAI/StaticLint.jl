@@ -56,6 +56,8 @@ struct Unlock_Extension <: ExtendedRule end
 struct Yield_Extension <: ExtendedRule end
 struct Sleep_Extension <: ExtendedRule end
 struct Mmap_Extension <: ExtendedRule end
+struct Future_Extension <: ExtendedRule end
+struct Wait_Extension <: ExtendedRule end
 struct Fetch_Extension <: ExtendedRule end
 struct Inbounds_Extension <: ExtendedRule end
 struct Atomic_Extension <: ExtendedRule end
@@ -153,3 +155,9 @@ function check(::Atomic_Extension, x::EXPR)
     generic_check(x, "Threads.Atomic{hole_variable}(hole_variable_star)", msg)
 end
 
+function check(::Future_Extension, x::EXPR)
+    generic_check(x, "Future{hole_variable}(hole_variable_star)", "`Future` should be used with extreme caution.")
+    generic_check(x, "Future(hole_variable_star)", "`Future` should be used with extreme caution.")
+end
+
+check(::Wait_Extension, x::EXPR) = generic_check(x, "wait(hole_variable)", "`wait` should be used with extreme caution.")
