@@ -402,6 +402,36 @@ end
         @test lint_test(source,
             "Line 13, column 10: `mmap` should be used with extreme caution.")
     end
+
+    @testset "fetch, @inbounds, Atomic" begin
+        source = """
+            function f()
+                fut = Future{Any}()
+                r1 = fetch(fut)
+
+                @inbounds begin
+                    at_end(iter) && return 0
+                    i = 1
+                    set_from_tuple!(columns_tuple, 1, iter_tuple(iter))
+                    while next!(iter) && i < cap
+                        i += 1
+                        set_from_tuple!(columns_tuple, i, iter_tuple(iter))
+                    end
+                    return i
+                end
+                num_created1 = Threads.Atomic{Int}(0);
+                num_created2 = Atomic{Int}(0);
+                num_created3 = Atomic(0);
+            end
+            """
+
+        @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
+        @test lint_test(source, "Line 5, column 5: `@inbounds` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 15, column 20: `Atomic` should be used with extreme caution.")
+        @test lint_test(source, "Line 16, column 20: `Atomic` should be used with extreme caution.")
+        @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
+    end
 end
 
 @testset "Comparison" begin

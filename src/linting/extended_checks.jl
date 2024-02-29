@@ -56,6 +56,9 @@ struct Unlock_Extension <: ExtendedRule end
 struct Yield_Extension <: ExtendedRule end
 struct Sleep_Extension <: ExtendedRule end
 struct Mmap_Extension <: ExtendedRule end
+struct Fetch_Extension <: ExtendedRule end
+struct Inbounds_Extension <: ExtendedRule end
+struct Atomic_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -137,5 +140,16 @@ check(::Sleep_Extension, x::EXPR) = generic_check(x, "sleep(hole_variable)", "`s
 function check(::Mmap_Extension, x::EXPR)
     generic_check(x, "mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
     generic_check(x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
+end
+
+check(::Fetch_Extension, x::EXPR) = generic_check(x, "fetch(hole_variable)", "`fetch` should be used with extreme caution.")
+check(::Inbounds_Extension, x::EXPR) = generic_check(x, "@inbounds hole_variable", "`@inbounds` should be used with extreme caution.")
+
+function check(::Atomic_Extension, x::EXPR)
+    msg = "`Atomic` should be used with extreme caution."
+    generic_check(x, "Atomic(hole_variable_star)", msg)
+    generic_check(x, "Atomic{hole_variable}(hole_variable_star)", msg)
+    generic_check(x, "Threads.Atomic(hole_variable_star)", msg)
+    generic_check(x, "Threads.Atomic{hole_variable}(hole_variable_star)", msg)
 end
 
