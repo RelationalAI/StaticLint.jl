@@ -58,6 +58,11 @@ struct Sleep_Extension <: ExtendedRule end
 struct Mmap_Extension <: ExtendedRule end
 struct Future_Extension <: ExtendedRule end
 struct Wait_Extension <: ExtendedRule end
+struct Fetch_Extension <: ExtendedRule end
+struct Inbounds_Extension <: ExtendedRule end
+struct Atomic_Extension <: ExtendedRule end
+struct Ptr_Extension <: ExtendedRule end
+
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -80,10 +85,16 @@ function get_oracle_ast(template_code::String)
 end
 
 does_match(x::EXPR, template_code::String) = comp(x, get_oracle_ast(template_code))
-function generic_check(x::EXPR, template_code::String, error_code)
-    error_code isa String && get!(error_msgs, template_code, error_code)
-    does_match(x, template_code) && seterror!(x, error_code)
+function generic_check(x::EXPR, template_code::String, error_msg)
+    error_msg isa String && get!(error_msgs, template_code, error_msg)
+    does_match(x, template_code) && seterror!(x, error_msg)
 end
+
+function generic_check(x::EXPR, template_code::String)
+    keyword = first(split(template_code, ['(', '{', ' ']))
+    return generic_check(x, template_code, "`$(keyword)` should be used with extreme caution.")
+end
+
 
 # Useful for rules that do not need markers
 check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
@@ -133,18 +144,29 @@ function check(::Lock_Extension, x::EXPR)
     generic_check(x, "Base.@lock hole_variable hole_variable", msg)
 end
 
-check(::Unlock_Extension, x::EXPR) = generic_check(x, "unlock(hole_variable)", "`unlock` should be used with extreme caution.")
-check(::Yield_Extension, x::EXPR) = generic_check(x, "yield()", "`yield` should be used with extreme caution.")
-check(::Sleep_Extension, x::EXPR) = generic_check(x, "sleep(hole_variable)", "`sleep` should be used with extreme caution.")
+check(::Unlock_Extension, x::EXPR) = generic_check(x, "unlock(hole_variable)")
+check(::Yield_Extension, x::EXPR) = generic_check(x, "yield()")
+check(::Sleep_Extension, x::EXPR) = generic_check(x, "sleep(hole_variable)")
 function check(::Mmap_Extension, x::EXPR)
-    generic_check(x, "mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
+    generic_check(x, "mmap(hole_variable_star)")
     generic_check(x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
 end
 
-function check(::Future_Extension, x::EXPR)
-    generic_check(x, "Future{hole_variable}(hole_variable_star)", "`Future` should be used with extreme caution.")
-    generic_check(x, "Future(hole_variable_star)", "`Future` should be used with extreme caution.")
+check(::Fetch_Extension, x::EXPR) = generic_check(x, "fetch(hole_variable)")
+check(::Inbounds_Extension, x::EXPR) = generic_check(x, "@inbounds hole_variable")
+
+function check(::Atomic_Extension, x::EXPR)
+    msg = "`Atomic` should be used with extreme caution."
+    generic_check(x, "Atomic(hole_variable_star)", msg)
+    generic_check(x, "Atomic{hole_variable}(hole_variable_star)", msg)
+    generic_check(x, "Threads.Atomic(hole_variable_star)", msg)
+    generic_check(x, "Threads.Atomic{hole_variable}(hole_variable_star)", msg)
 end
 
-check(::Wait_Extension, x::EXPR) = generic_check(x, "wait(hole_variable)", "`wait` should be used with extreme caution.")
+function check(::Future_Extension, x::EXPR)
+    generic_check(x, "Future{hole_variable}(hole_variable_star)")
+    generic_check(x, "Future(hole_variable_star)")
+end
 
+check(::Wait_Extension, x::EXPR) = generic_check(x, "wait(hole_variable)")
+check(::Ptr_Extension, x::EXPR) = generic_check(x, "Ptr{hole_variable}(hole_variable)")

@@ -404,6 +404,8 @@ end
         @test lint_test(source,
             "Line 12, column 10: `mmap` should be used with extreme caution.")
         @test lint_test(source,
+            "Line 13, column 10: `mmap` should be used with extreme caution.")
+        @test lint_test(source,           
             "Line 14, column 12: `Future` should be used with extreme caution.")
         @test lint_test(source,
             "Line 15, column 12: `Future` should be used with extreme caution.")
@@ -411,8 +413,43 @@ end
             "Line 16, column 12: `Future` should be used with extreme caution.")
         @test lint_test(source,
             "Line 18, column 5: `wait` should be used with extreme caution.")
-        end
+    end
+
+    @testset "fetch, @inbounds, Atomic, Ptr" begin
+        source = """
+            function f()
+                fut = Future{Any}()
+                r1 = fetch(fut)
+
+                @inbounds begin
+                    at_end(iter) && return 0
+                    i = 1
+                    set_from_tuple!(columns_tuple, 1, iter_tuple(iter))
+                    while next!(iter) && i < cap
+                        i += 1
+                        set_from_tuple!(columns_tuple, i, iter_tuple(iter))
+                    end
+                    return i
+                end
+                num_created1 = Threads.Atomic{Int}(0);
+                num_created2 = Atomic{Int}(0);
+                num_created3 = Atomic(0);
+
+                pointer(page) == Ptr{Nothing}(0) && return
+            end
+            """
+
+        @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
+        @test lint_test(source, "Line 5, column 5: `@inbounds` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 15, column 20: `Atomic` should be used with extreme caution.")
+        @test lint_test(source, "Line 16, column 20: `Atomic` should be used with extreme caution.")
+        @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
+    end
 end
+
 
 @testset "Comparison" begin
     t(s1, s2) = comp(CSTParser.parse(s1), CSTParser.parse(s2))
