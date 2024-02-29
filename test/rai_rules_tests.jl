@@ -415,7 +415,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic" begin
+    @testset "fetch, @inbounds, Atomic, Ptr" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -434,6 +434,8 @@ end
                 num_created1 = Threads.Atomic{Int}(0);
                 num_created2 = Atomic{Int}(0);
                 num_created3 = Atomic(0);
+
+                pointer(page) == Ptr{Nothing}(0) && return
             end
             """
 
@@ -443,6 +445,8 @@ end
         @test lint_test(source, "Line 15, column 20: `Atomic` should be used with extreme caution.")
         @test lint_test(source, "Line 16, column 20: `Atomic` should be used with extreme caution.")
         @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
     end
 end
 

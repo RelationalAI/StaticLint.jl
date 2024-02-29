@@ -169,5 +169,4 @@ function check(::Future_Extension, x::EXPR)
 end
 
 check(::Wait_Extension, x::EXPR) = generic_check(x, "wait(hole_variable)")
-
 check(::Ptr_Extension, x::EXPR) = generic_check(x, "Ptr{hole_variable}(hole_variable)")
