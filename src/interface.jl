@@ -288,30 +288,51 @@ function run_lint_on_text(
     end
 end
 
-
+function print_datadog_report(
+    json_output::IO,
+    report_as_string::String,
+    files_count::Int64,
+    errors_count::Int64
+)
+    event = Dict(
+        :source => "StaticLint",
+        :specversion => "1.0",
+        :type => "result",
+        :time => string(now(UTC)), #Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
+        :data => Dict(:report_as_string=>report_as_string,
+                    :files_count=>files_count,
+                    :errors_count => errors_count)
+    )
+    println(json_output, JSON3.write(event))
+end
 """
-    generate_report(filenames::Vector{String}, output_filename::String)
+    generate_report(filenames::Vector{String}, output_filename::String, json_output::IO=stdout)
 
 Main entry point of StaticLint.jl. The function `generate_report` takes as argument a list
 of files on which lint has to process. A report is generated containing the result.
 
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
 """
-function generate_report(filenames::Vector{String}, output_filename::String)
+function generate_report(
+    filenames::Vector{String},
+    output_filename::String,
+    json_output::IO=stdout
+)
     if isfile(output_filename)
         @error "File $output_filename exist already."
         return
     end
 
     local errors_count = 0
-    local files_count = length(filenames)
+    local julia_filenames = filter(n->endswith(n, ".jl"), filenames)
+    local files_count = length(julia_filenames)
 
     open(output_filename, "w") do output_io
         println(output_io, "## Static code analyzer report")
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
             (https://github.com/RelationalAI/StaticLint.jl)**\n\
             Report creation time (UTC): ($(now()))")
-        for filename in filenames
+        for filename in julia_filenames
             errors_count += StaticLint.run_lint(
                                     filename;
                                     io=output_io,
@@ -319,29 +340,21 @@ function generate_report(filenames::Vector{String}, output_filename::String)
                                     formatter=MarkdownFormat())
         end
 
-        has_julia_file = any(n->endswith(n, ".jl"), filenames)
+        has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
+        ending = length(julia_filenames) > 1 ? "s" : ""
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
             if iszero(errors_count)
-                print(output_io, "🎉No potential threats are found over $(length(filenames)) files.👍\n\n")
+                print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
             elseif errors_count == 1
-                println(output_io, "🚨**In total, 1 error is found over $(length(filenames)) files**🚨")
+                println(output_io, "🚨**In total, 1 error is found over $(length(julia_filenames)) Julia file$(ending)**🚨")
             else
-                println(output_io, "🚨**In total, $(errors_count) errors are found over $(files_count) files**🚨")
+                println(output_io, "🚨**In total, $(errors_count) errors are found over $(files_count) Julia file$(ending)**🚨")
             end
         end
     end
 
     report_as_string = open(output_filename) do io read(io, String) end
-    @info "StaticLint report" report_as_string errors_count files_count
-
-    event = Dict(
-        :source => "StaticLint",
-        :specversion => "1.0",
-        :type => "result",
-        :time => string(now(UTC)), #Dates.format(now(UTC), "yyyy-mm-ddTHH:MM:SSZ"), # RFC3339 format
-        :data => Dict(:report_as_string=>report_as_string, :files_count=>files_count)
-    )
-    println(stdout, JSON3.write(event))
+    print_datadog_report(json_output, report_as_string, files_count, errors_count)
 end

@@ -2,6 +2,7 @@ using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
     convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat
 import CSTParser
 using Test
+using JSON3
 
 function lint_test(source::String, expected_substring::String, verbose=true)
     io = IOBuffer()
@@ -610,7 +611,13 @@ end
                     flush(io2)
 
                     output_file = tempname()
-                    StaticLint.generate_report([file1, file2], output_file)
+                    json_io = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file, json_io)
+
+                    json_report = JSON3.read(String(take!(json_io)))
+                    @test json_report[:source] == "StaticLint"
+                    @test json_report[:data][:files_count] == 2
+                    @test json_report[:data][:errors_count] == 3
 
                     local result
                     open(output_file) do oo
@@ -624,7 +631,7 @@ end
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
                          - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. at offset 15 of \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. at offset 37 of \H+
-                        🚨\*\*In total, 3 errors are found over 2 files\*\*🚨
+                        🚨\*\*In total, 3 errors are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
@@ -633,13 +640,16 @@ end
         @test result_matching
     end
 
-    @testset "No result with modified julia file" begin
+    @testset "No modified julia file" begin
         output_file = tempname()
-        StaticLint.generate_report(String[], output_file)
-        local result
-        open(output_file) do oo
-            result = read(oo, String)
-        end
+        json_io = IOBuffer()
+        StaticLint.generate_report(String[], output_file, json_io)
+
+        json_report = JSON3.read(String(take!(json_io)))
+        @test json_report[:source] == "StaticLint"
+        @test json_report[:data][:files_count] == 0
+        @test json_report[:data][:errors_count] == 0
+
 
         expected = r"""
             ## Static code analyzer report
@@ -647,6 +657,8 @@ end
             Report creation time \(UTC\): \H+
             No Julia file is modified or added in this PR.
             """
+        result = open(io->read(io, String), output_file)
+
         result_matching = !isnothing(match(expected, result))
         @test result_matching
     end
@@ -660,7 +672,13 @@ end
                 flush(io1)
 
                 output_file = tempname()
-                StaticLint.generate_report([file1], output_file)
+                json_io = IOBuffer()
+                StaticLint.generate_report([file1], output_file, json_io)
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] == 0
+                @test json_report[:data][:errors_count] == 0
 
                 local result
                 open(output_file) do oo
@@ -694,7 +712,13 @@ end
                     flush(io2)
 
                     output_file = tempname()
-                    StaticLint.generate_report([file1, file2], output_file)
+                    json_io = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file, json_io)
+
+                    json_report = JSON3.read(String(take!(json_io)))
+                    @test json_report[:source] == "StaticLint"
+                    @test json_report[:data][:files_count] == 2
+                    @test json_report[:data][:errors_count] == 0
 
                     local result
                     open(output_file) do oo
@@ -705,10 +729,44 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
                         Report creation time \(UTC\): \H+
-                        🎉No potential threats are found over 2 files.👍
+                        🎉No potential threats are found over 2 Julia files.👍
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "Report generation of 1 file with no errors" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n  @spawn 1 + 1\nend\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report([file1], output_file, json_io)
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] == 1
+                @test json_report[:data][:errors_count] == 0
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+
+                expected = r"""
+                    ## Static code analyzer report
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    Report creation time \(UTC\): \H+
+                    🎉No potential threats are found over 1 Julia file.👍
+                    """
+                result_matching = !isnothing(match(expected, result))
             end
         end
         @test result_matching
