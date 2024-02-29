@@ -413,7 +413,6 @@ end
             "Line 16, column 12: `Future` should be used with extreme caution.")
         @test lint_test(source,
             "Line 18, column 5: `wait` should be used with extreme caution.")
-        end        
     end
 
     @testset "fetch, @inbounds, Atomic" begin
@@ -446,6 +445,7 @@ end
         @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
     end
 end
+
 
 @testset "Comparison" begin
     t(s1, s2) = comp(CSTParser.parse(s1), CSTParser.parse(s2))
