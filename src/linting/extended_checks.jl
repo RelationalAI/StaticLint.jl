@@ -63,8 +63,7 @@ struct Inbounds_Extension <: ExtendedRule end
 struct Atomic_Extension <: ExtendedRule end
 struct Ptr_Extension <: ExtendedRule end
 struct ArrayWithNoType_Extension <: ExtendedRule end
-
-
+struct Threads_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -177,4 +176,10 @@ function check(::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,String
     haskey(markers, :filename) || return
     contains(markers[:filename], "src/Compiler") || return
     generic_check(x, "[]", "Need a specific Array type to be provided.")
+end
+
+function check(::Threads_Extension, x::EXPR)
+    msg = "`@threads` should be used with extreme caution."
+    generic_check(x, "Threads.@threads hole_variable", msg)
+    generic_check(x, "@threads hole_variable", msg)
 end

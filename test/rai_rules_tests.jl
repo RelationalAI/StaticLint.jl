@@ -64,11 +64,17 @@ end
             "Line 2, column 5: Macro `@cfunction` should not be used.")
     end
 
-    @testset "@lock" begin
+    @testset "@lock ,@threads" begin
         source = """
         function mark_transaction_as_database_creation!(kv::SpcsKV, transaction_id::String)
             @lock kv.latch begin
                 push!(kv.create_database_transactions, transaction_id)
+            end
+
+
+            Threads.@threads for (e, v) in slots
+                @test e[] == v
+                free_slot!(pool, Blob{Nothing}(e))
             end
             return nothing
         end
@@ -76,93 +82,12 @@ end
         @test lint_has_error_test(source)
         @test lint_test(source,
             "Line 2, column 5: `@lock` should be used with extreme caution")
+        @test lint_test(source,
+            "Line 7, column 5: `@threads` should be used with extreme caution.")
     end
 
 
-    @testset "Locally disabling lint" begin
-        @testset "lint-disable-lint" begin
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 # lint-disable-line
-                end
-                """)
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #lint-disable-line
-                end
-                """)
 
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #  lint-disable-line
-                end
-                """)
-
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #  lint-disable-line
-                    @async 1 + 3
-                end
-                """)
-        end
-        @testset "lint-disable-next-line" begin
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-
-            @test lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-
-                    @async 1 + 3
-                end
-                """)
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2
-                    # lint-disable-next-line
-
-                    @async 1 + 3
-                end
-                """)
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2
-                    # lint-disable-next-line
-                    @async 1 + 3
-                end
-                """)
-
-            source = """
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-
-                    @async 1 + 3
-                end
-                """
-            source_lines = split(source, "\n")
-            @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
-            @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
-        end
-    end
 end
 
 @testset "forbidden functions" begin
@@ -874,5 +799,90 @@ end
         mktempdir() do dir
             @test iszero(StaticLint.run_lint(dir))
         end
+    end
+end
+
+@testset "Locally disabling lint" begin
+    @testset "lint-disable-lint" begin
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 # lint-disable-line
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #lint-disable-line
+            end
+            """)
+
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #  lint-disable-line
+            end
+            """)
+
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2 #  lint-disable-line
+                @async 1 + 3
+            end
+            """)
+    end
+    @testset "lint-disable-next-line" begin
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+
+        @test lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+
+                @async 1 + 3
+            end
+            """)
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2
+                # lint-disable-next-line
+
+                @async 1 + 3
+            end
+            """)
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2
+                # lint-disable-next-line
+                @async 1 + 3
+            end
+            """)
+
+        source = """
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+
+                @async 1 + 3
+            end
+            """
+        source_lines = split(source, "\n")
+        @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
+        @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
     end
 end
