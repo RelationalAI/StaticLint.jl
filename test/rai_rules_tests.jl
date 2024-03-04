@@ -394,6 +394,10 @@ end
             function foo()
                 ch1 = Channel()
                 ch2 = Channel(10)
+
+                a() = sum(i for i in 1:1000);
+                b = Task(a);
+
                 return (ch1, ch2)
             end
             """
@@ -412,6 +416,7 @@ end
         @test lint_test(source, "Line 29, column 11: `Channel` should be used with extreme caution.")
         @test lint_test(source, "Line 30, column 11: `Channel` should be used with extreme caution.")
 
+        @test lint_test(source, "Line 33, column 9: `Task` should be used with extreme caution.")
     end
 
     @testset "Array with no specific type 01" begin
