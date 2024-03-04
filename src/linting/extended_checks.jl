@@ -70,6 +70,7 @@ struct RemovePage_Extension <: ExtendedRule end
 struct Channel_Extension <: ExtendedRule end
 struct Task_Extension <: ExtendedRule end
 struct ErrorException_Extension <: ExtendedRule end
+struct Error_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -208,3 +209,11 @@ function check(::ErrorException_Extension, x::EXPR)
         "ErrorException(hole_variable_star)",
         "Use custom exception instead of the generic `ErrorException`")
 end
+
+function check(::Error_Extension, x::EXPR)
+    generic_check(
+        x,
+        "error(hole_variable)",
+        "Use custom exception instead of the generic `error(...)`")
+end
+

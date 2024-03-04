@@ -405,6 +405,8 @@ end
             function bar(x)
                 throw(ErrorException("My error"))
             end
+
+            bar() = error("My fault")
             """
 
         @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
@@ -424,6 +426,8 @@ end
         @test lint_test(source, "Line 33, column 9: `Task` should be used with extreme caution.")
 
         @test lint_test(source, "Line 40, column 11: Use custom exception instead of the generic `ErrorException`")
+        @test lint_test(source, "Line 43, column 9: Use custom exception instead of the generic `error(...)`")
+
     end
 
     @testset "Array with no specific type 01" begin
