@@ -62,6 +62,8 @@ struct Fetch_Extension <: ExtendedRule end
 struct Inbounds_Extension <: ExtendedRule end
 struct Atomic_Extension <: ExtendedRule end
 struct Ptr_Extension <: ExtendedRule end
+struct ArrayWithNoType_Extension <: ExtendedRule end
+
 
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
@@ -97,7 +99,7 @@ end
 
 
 # Useful for rules that do not need markers
-check(t::Any, x::EXPR, markers::Dict{Symbol,Symbol}) = check(t, x)
+check(t::Any, x::EXPR, markers::Dict{Symbol,String}) = check(t, x)
 
 # The following function defines rules that are matched on the input Julia source code
 # Each rule comes with a pattern that is checked against the abstract syntax tree
@@ -115,7 +117,7 @@ end
 check(::Ccall_Extention, x::EXPR) = generic_check(x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "`ccall` should be used with extreme caution.")
 check(::Pointer_from_objref_Extention, x::EXPR) = generic_check(x, "pointer_from_objref(hole_variable)", "`pointer_from_objref` should be used with extreme caution.")
 
-function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,String})
     # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
     haskey(markers, :const) || return
     generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
@@ -170,3 +172,9 @@ end
 
 check(::Wait_Extension, x::EXPR) = generic_check(x, "wait(hole_variable)")
 check(::Ptr_Extension, x::EXPR) = generic_check(x, "Ptr{hole_variable}(hole_variable)")
+
+function check(::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,String})
+    haskey(markers, :filename) || return
+    contains(markers[:filename], "src/Compiler") || return
+    generic_check(x, "[]", "Need a specific Array type to be provided.")
+end

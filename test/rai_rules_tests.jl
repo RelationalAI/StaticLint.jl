@@ -4,9 +4,9 @@ import CSTParser
 using Test
 using JSON3
 
-function lint_test(source::String, expected_substring::String, verbose=true)
+function lint_test(source::String, expected_substring::String; verbose=true, directory::String = "")
     io = IOBuffer()
-    run_lint_on_text(source; io=io)
+    run_lint_on_text(source; io, directory)
     output = String(take!(io))
     result = contains(output, expected_substring)
     verbose && !result && @warn "Not matching " output expected_substring
@@ -448,8 +448,33 @@ end
 
         @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
     end
-end
 
+    @testset "Array with no specific type 01" begin
+        source = """
+            function f()
+                x = []
+                y = String[]
+                return vcat(x, y)
+            end
+            """
+        # No error because this tmp file is not in the src/Compiler
+        @test !lint_has_error_test(source)
+    end
+
+    @testset "Array with no specific type 02" begin
+        source = """
+            function f()
+                x = []
+                y = String[]
+                return vcat(x, y)
+            end
+            """
+        @test lint_test(
+                source,
+                "Line 2, column 9: Need a specific Array type to be provided.",
+                directory = "src/Compiler/")
+    end
+end
 
 @testset "Comparison" begin
     t(s1, s2) = comp(CSTParser.parse(s1), CSTParser.parse(s2))
