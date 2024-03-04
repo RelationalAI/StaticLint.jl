@@ -64,7 +64,7 @@ end
             "Line 2, column 5: Macro `@cfunction` should not be used.")
     end
 
-    @testset "@lock ,@threads" begin
+    @testset "@lock, @threads, @generated" begin
         source = """
         function mark_transaction_as_database_creation!(kv::SpcsKV, transaction_id::String)
             @lock kv.latch begin
@@ -78,12 +78,19 @@ end
             end
             return nothing
         end
+
+        @generated function _empty_vector(::Type{T}) where {T}
+            vec = T[]
+            return vec
+        end
         """
         @test lint_has_error_test(source)
         @test lint_test(source,
             "Line 2, column 5: `@lock` should be used with extreme caution")
         @test lint_test(source,
             "Line 7, column 5: `@threads` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 14, column 1: `@generated` should be used with extreme caution.")
     end
 
 

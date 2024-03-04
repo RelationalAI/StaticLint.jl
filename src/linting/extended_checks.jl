@@ -64,6 +64,7 @@ struct Atomic_Extension <: ExtendedRule end
 struct Ptr_Extension <: ExtendedRule end
 struct ArrayWithNoType_Extension <: ExtendedRule end
 struct Threads_Extension <: ExtendedRule end
+struct Generated_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -183,3 +184,6 @@ function check(::Threads_Extension, x::EXPR)
     generic_check(x, "Threads.@threads hole_variable", msg)
     generic_check(x, "@threads hole_variable", msg)
 end
+
+check(::Generated_Extension, x::EXPR) = generic_check(x, "@generated hole_variable")
+
