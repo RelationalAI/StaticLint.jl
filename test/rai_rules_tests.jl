@@ -64,104 +64,51 @@ end
             "Line 2, column 5: Macro `@cfunction` should not be used.")
     end
 
-    @testset "@lock" begin
+    @testset "@lock, @threads, @generated" begin
         source = """
         function mark_transaction_as_database_creation!(kv::SpcsKV, transaction_id::String)
             @lock kv.latch begin
                 push!(kv.create_database_transactions, transaction_id)
             end
+
+
+            Threads.@threads for (e, v) in slots
+                @test e[] == v
+                free_slot!(pool, Blob{Nothing}(e))
+            end
             return nothing
+        end
+
+        @generated function _empty_vector(::Type{T}) where {T}
+            vec = T[]
+            return vec
+        end
+
+        try
+            @sync begin
+                @spawn_pager_bg_task RAI_PagerCore.add_to_cache!(conf, page)
+                @span_no_threshold "eot_rootmarker_write_to_blob" write_marker_to_cloud(
+                    conf, page, rootinfo
+                )
+            end
+        catch
+            Threads.@sync begin
+                1 + 2
+            end
+            nothing
         end
         """
         @test lint_has_error_test(source)
         @test lint_test(source,
             "Line 2, column 5: `@lock` should be used with extreme caution")
-    end
-
-
-    @testset "Locally disabling lint" begin
-        @testset "lint-disable-lint" begin
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 # lint-disable-line
-                end
-                """)
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #lint-disable-line
-                end
-                """)
-
-            @test !lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #  lint-disable-line
-                end
-                """)
-
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2 #  lint-disable-line
-                    @async 1 + 3
-                end
-                """)
-        end
-        @testset "lint-disable-next-line" begin
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-
-            @test !lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-                end
-                """)
-
-            @test lint_has_error_test("""
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-
-                    @async 1 + 3
-                end
-                """)
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2
-                    # lint-disable-next-line
-
-                    @async 1 + 3
-                end
-                """)
-            @test lint_has_error_test("""
-                function f()
-                    @async 1 + 2
-                    # lint-disable-next-line
-                    @async 1 + 3
-                end
-                """)
-
-            source = """
-                function f()
-                    # lint-disable-next-line
-                    @async 1 + 2
-
-                    @async 1 + 3
-                end
-                """
-            source_lines = split(source, "\n")
-            @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
-            @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
-        end
+        @test lint_test(source,
+            "Line 7, column 5: `@threads` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 14, column 1: `@generated` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 20, column 5: `@sync` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 27, column 5: `@sync` should be used with extreme caution.")
     end
 end
 
@@ -415,7 +362,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic, Ptr" begin
+    @testset "fetch, @inbounds, Atomic, Ptr, remove_page, Channel, ErrorException" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -437,6 +384,29 @@ end
 
                 pointer(page) == Ptr{Nothing}(0) && return
             end
+
+            function _clear_pager!(pager)
+                for (pid, _) in pager.owned_pages
+                    remove_page(pager, pid)
+                end
+            end
+
+            function foo()
+                ch1 = Channel()
+                ch2 = Channel(10)
+
+                a() = sum(i for i in 1:1000);
+                b = Task(a);
+
+                e = ErrorException("failure")
+                return (ch1, ch2)
+            end
+
+            function bar(x)
+                throw(ErrorException("My error"))
+            end
+
+            bar() = error("My fault")
             """
 
         @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
@@ -447,6 +417,17 @@ end
         @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
 
         @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 24, column 9: `remove_page` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 29, column 11: `Channel` should be used with extreme caution.")
+        @test lint_test(source, "Line 30, column 11: `Channel` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 33, column 9: `Task` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 40, column 11: Use custom exception instead of the generic `ErrorException`")
+        @test lint_test(source, "Line 43, column 9: Use custom exception instead of the generic `error(...)`")
+
     end
 
     @testset "Array with no specific type 01" begin
@@ -874,5 +855,90 @@ end
         mktempdir() do dir
             @test iszero(StaticLint.run_lint(dir))
         end
+    end
+end
+
+@testset "Locally disabling lint" begin
+    @testset "lint-disable-lint" begin
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 # lint-disable-line
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #lint-disable-line
+            end
+            """)
+
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #  lint-disable-line
+            end
+            """)
+
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2 #  lint-disable-line
+                @async 1 + 3
+            end
+            """)
+    end
+    @testset "lint-disable-next-line" begin
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+
+        @test !lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+            end
+            """)
+
+        @test lint_has_error_test("""
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+
+                @async 1 + 3
+            end
+            """)
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2
+                # lint-disable-next-line
+
+                @async 1 + 3
+            end
+            """)
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2
+                # lint-disable-next-line
+                @async 1 + 3
+            end
+            """)
+
+        source = """
+            function f()
+                # lint-disable-next-line
+                @async 1 + 2
+
+                @async 1 + 3
+            end
+            """
+        source_lines = split(source, "\n")
+        @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
+        @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
     end
 end

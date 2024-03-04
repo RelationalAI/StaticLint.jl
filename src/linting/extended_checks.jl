@@ -63,8 +63,14 @@ struct Inbounds_Extension <: ExtendedRule end
 struct Atomic_Extension <: ExtendedRule end
 struct Ptr_Extension <: ExtendedRule end
 struct ArrayWithNoType_Extension <: ExtendedRule end
-
-
+struct Threads_Extension <: ExtendedRule end
+struct Generated_Extension <: ExtendedRule end
+struct Sync_Extension <: ExtendedRule end
+struct RemovePage_Extension <: ExtendedRule end
+struct Channel_Extension <: ExtendedRule end
+struct Task_Extension <: ExtendedRule end
+struct ErrorException_Extension <: ExtendedRule end
+struct Error_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -178,3 +184,36 @@ function check(::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,String
     contains(markers[:filename], "src/Compiler") || return
     generic_check(x, "[]", "Need a specific Array type to be provided.")
 end
+
+function check(::Threads_Extension, x::EXPR)
+    msg = "`@threads` should be used with extreme caution."
+    generic_check(x, "Threads.@threads hole_variable", msg)
+    generic_check(x, "@threads hole_variable", msg)
+end
+
+check(::Generated_Extension, x::EXPR) = generic_check(x, "@generated hole_variable")
+
+function check(::Sync_Extension, x::EXPR)
+    msg = "`@sync` should be used with extreme caution."
+    generic_check(x, "@sync hole_variable", msg)
+    generic_check(x, "Threads.@sync hole_variable", msg)
+end
+
+check(::RemovePage_Extension, x::EXPR) = generic_check(x, "remove_page(hole_variable,hole_variable)")
+check(::Channel_Extension, x::EXPR) = generic_check(x, "Channel(hole_variable_star)")
+check(::Task_Extension, x::EXPR) = generic_check(x, "Task(hole_variable)")
+
+function check(::ErrorException_Extension, x::EXPR)
+    generic_check(
+        x,
+        "ErrorException(hole_variable_star)",
+        "Use custom exception instead of the generic `ErrorException`")
+end
+
+function check(::Error_Extension, x::EXPR)
+    generic_check(
+        x,
+        "error(hole_variable)",
+        "Use custom exception instead of the generic `error(...)`")
+end
+
