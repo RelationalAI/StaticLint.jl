@@ -362,7 +362,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic, Ptr, remove_page" begin
+    @testset "fetch, @inbounds, Atomic, Ptr, remove_page, Channel" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -390,6 +390,12 @@ end
                     remove_page(pager, pid)
                 end
             end
+
+            function foo()
+                ch1 = Channel()
+                ch2 = Channel(10)
+                return (ch1, ch2)
+            end
             """
 
         @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
@@ -402,6 +408,10 @@ end
         @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
 
         @test lint_test(source, "Line 24, column 9: `remove_page` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 29, column 11: `Channel` should be used with extreme caution.")
+        @test lint_test(source, "Line 30, column 11: `Channel` should be used with extreme caution.")
+
     end
 
     @testset "Array with no specific type 01" begin

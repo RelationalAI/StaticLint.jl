@@ -67,6 +67,7 @@ struct Threads_Extension <: ExtendedRule end
 struct Generated_Extension <: ExtendedRule end
 struct Sync_Extension <: ExtendedRule end
 struct RemovePage_Extension <: ExtendedRule end
+struct Channel_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -196,3 +197,6 @@ function check(::Sync_Extension, x::EXPR)
 end
 
 check(::RemovePage_Extension, x::EXPR) = generic_check(x, "remove_page(hole_variable,hole_variable)")
+
+check(::Channel_Extension, x::EXPR) = generic_check(x, "Channel(hole_variable_star)")
+
