@@ -66,6 +66,7 @@ struct ArrayWithNoType_Extension <: ExtendedRule end
 struct Threads_Extension <: ExtendedRule end
 struct Generated_Extension <: ExtendedRule end
 struct Sync_Extension <: ExtendedRule end
+struct RemovePage_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -193,3 +194,5 @@ function check(::Sync_Extension, x::EXPR)
     generic_check(x, "@sync hole_variable", msg)
     generic_check(x, "Threads.@sync hole_variable", msg)
 end
+
+check(::RemovePage_Extension, x::EXPR) = generic_check(x, "remove_page(hole_variable,hole_variable)")

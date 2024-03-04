@@ -362,7 +362,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic, Ptr" begin
+    @testset "fetch, @inbounds, Atomic, Ptr, remove_page" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -384,6 +384,12 @@ end
 
                 pointer(page) == Ptr{Nothing}(0) && return
             end
+
+            function _clear_pager!(pager)
+                for (pid, _) in pager.owned_pages
+                    remove_page(pager, pid)
+                end
+            end
             """
 
         @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
@@ -394,6 +400,8 @@ end
         @test lint_test(source, "Line 17, column 20: `Atomic` should be used with extreme caution.")
 
         @test lint_test(source, "Line 19, column 22: `Ptr` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 24, column 9: `remove_page` should be used with extreme caution.")
     end
 
     @testset "Array with no specific type 01" begin
