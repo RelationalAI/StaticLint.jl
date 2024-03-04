@@ -65,6 +65,7 @@ struct Ptr_Extension <: ExtendedRule end
 struct ArrayWithNoType_Extension <: ExtendedRule end
 struct Threads_Extension <: ExtendedRule end
 struct Generated_Extension <: ExtendedRule end
+struct Sync_Extension <: ExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -187,3 +188,8 @@ end
 
 check(::Generated_Extension, x::EXPR) = generic_check(x, "@generated hole_variable")
 
+function check(::Sync_Extension, x::EXPR)
+    msg = "`@sync` should be used with extreme caution."
+    generic_check(x, "@sync hole_variable", msg)
+    generic_check(x, "Threads.@sync hole_variable", msg)
+end

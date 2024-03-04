@@ -83,6 +83,20 @@ end
             vec = T[]
             return vec
         end
+
+        try
+            @sync begin
+                @spawn_pager_bg_task RAI_PagerCore.add_to_cache!(conf, page)
+                @span_no_threshold "eot_rootmarker_write_to_blob" write_marker_to_cloud(
+                    conf, page, rootinfo
+                )
+            end
+        catch
+            Threads.@sync begin
+                1 + 2
+            end
+            nothing
+        end
         """
         @test lint_has_error_test(source)
         @test lint_test(source,
@@ -91,10 +105,11 @@ end
             "Line 7, column 5: `@threads` should be used with extreme caution.")
         @test lint_test(source,
             "Line 14, column 1: `@generated` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 20, column 5: `@sync` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 27, column 5: `@sync` should be used with extreme caution.")
     end
-
-
-
 end
 
 @testset "forbidden functions" begin
