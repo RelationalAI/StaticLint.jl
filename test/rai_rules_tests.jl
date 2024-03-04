@@ -362,7 +362,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic, Ptr, remove_page, Channel" begin
+    @testset "fetch, @inbounds, Atomic, Ptr, remove_page, Channel, ErrorException" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -398,7 +398,12 @@ end
                 a() = sum(i for i in 1:1000);
                 b = Task(a);
 
+                e = ErrorException("failure")
                 return (ch1, ch2)
+            end
+
+            function bar(x)
+                throw(ErrorException("My error"))
             end
             """
 
@@ -417,6 +422,8 @@ end
         @test lint_test(source, "Line 30, column 11: `Channel` should be used with extreme caution.")
 
         @test lint_test(source, "Line 33, column 9: `Task` should be used with extreme caution.")
+
+        @test lint_test(source, "Line 40, column 11: Use custom exception instead of the generic `ErrorException`")
     end
 
     @testset "Array with no specific type 01" begin
