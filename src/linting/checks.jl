@@ -112,9 +112,9 @@ LintOptions(::Colon) = LintOptions(fill(true, length(default_options))...)
 LintOptions(options::Vararg{Union{Bool,Nothing},length(default_options)}) =
     LintOptions(something.(options, default_options)...)
 
-function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{Symbol,Symbol}=Dict{Symbol,Symbol}())
+function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{Symbol,String}=Dict{Symbol,String}())
     if headof(x) === :const
-        markers[:const] = :const
+        markers[:const] = "const"
     end
 
     # Do checks

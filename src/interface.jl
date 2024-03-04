@@ -56,8 +56,9 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     empty!(server.files)
     root = loadfile(server, rootpath)
     semantic_pass(root)
+    markers::Dict{Symbol,String} = Dict(:filename => rootpath)
     for f in values(server.files)
-        check_all(f.cst, essential_options, getenv(f, server))
+        check_all(f.cst, essential_options, getenv(f, server), markers)
     end
     if gethints
         hints = []
@@ -273,18 +274,36 @@ function run_lint(
     return number_of_error_found
 end
 
+"""
+file_name corresponds to a file name that is used to create the temporary file. This is
+useful to test some rules that depends on the filename
+"""
 function run_lint_on_text(
     source::String;
     server = global_server,
     io::IO=stdout,
     filters::Vector{LintCodes}=essential_filters,
-    formatter::AbstractFormatter=PlainFormat()
+    formatter::AbstractFormatter=PlainFormat(),
+    directory::String = ""   # temporary directory to be created. If empty, let Julia decide
 )
-    tmp_file_name = tempname() * ".jl"
+    local tmp_file_name, tmp_dir
+    if isempty(directory)
+        tmp_file_name = tempname() * ".jl"
+    else
+        tmp_dir = joinpath(tempdir(), directory)
+        mkpath(tmp_dir)
+        tmp_file_name = joinpath(tmp_dir, "tmp_julia_file.jl")
+    end
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
         run_lint(tmp_file_name; server, io, filters, formatter)
+    end
+
+    # If a directory has been provided, then it needs to be deleted, after manually deleting the file
+    if !isempty(directory)
+        rm(tmp_file_name)
+        rm(tmp_dir)
     end
 end
 
