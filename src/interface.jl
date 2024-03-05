@@ -132,11 +132,17 @@ end
 
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
+
+# MarkdownFormat can optionally contains github information. This is useful when a
+# report is generated which contains Markdown links.
+# file_prefix_to_remove corresponds to a prefix files will be removed when generating the report
 struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
-    MarkdownFormat() = new("", "")
-    MarkdownFormat(branch::String, repo::String) = new(branch, repo)
+    file_prefix_to_remove::String
+    MarkdownFormat() = new("", "", "")
+    MarkdownFormat(branch::String, repo::String, prefix::String) = new(branch, repo, prefix)
+    MarkdownFormat(branch::String, repo::String) = new(branch, repo, "")
 end
 
 """
@@ -167,7 +173,7 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
     line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
     if isnothing(annotation_line)
-        print_hint(formatter, io, "Line $(line_number), column $(column):", hint_as_string )
+        print_hint(formatter, io, "Line $(line_number), column $(column):", hint_as_string)
         return true
     end
     return false
@@ -222,11 +228,15 @@ end
 
 print_header(::MarkdownFormat, io::IO, rootpath::String) = nothing
 print_footer(::MarkdownFormat, io::IO) = nothing
+
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
         line_number = split(coordinates, [' ', ','])[2]
         file_name = last(split(hint, " "))
         corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
+        if startswith(corrected_file_name, format.file_prefix_to_remove)
+            corrected_file_name = corrected_file_name[length(format.file_prefix_to_remove)+1:end]
+        end
         extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
         print(io, " - **$extended_coordinates** $hint\n")
     else
@@ -344,7 +354,8 @@ function generate_report(
     output_filename::String;
     json_output::IO=stdout,
     github_repository::String="",
-    branch_name::String=""
+    branch_name::String="",
+    file_prefix_to_remove::String=""
 )
     if isfile(output_filename)
         @error "File $output_filename exist already."
@@ -360,12 +371,14 @@ function generate_report(
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
             (https://github.com/RelationalAI/StaticLint.jl)**\n\
             Report creation time (UTC): ($(now()))")
+
+        formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
         for filename in julia_filenames
             errors_count += StaticLint.run_lint(
                                     filename;
                                     io=output_io,
                                     filters=essential_filters,
-                                    formatter=MarkdownFormat(branch_name, github_repository))
+                                    formatter)
         end
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)

@@ -613,7 +613,6 @@ end
             directory="/src/Compiler/")
         result = String(take!(io))
 
-# https://github.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/contrib/rel/dependency-graph-visualizer.rel#L18
         expected = r"""
              - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             """
@@ -631,7 +630,6 @@ end
             formatter,
             directory="src/Compiler/")
         result = String(take!(io))
-# https://github.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/contrib/rel/dependency-graph-visualizer.rel#L18
         expected = r"""
              - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             """
@@ -716,7 +714,7 @@ end
 
                     output_file = tempname()
                     json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file, json_io)
+                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
 
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
@@ -747,7 +745,7 @@ end
     @testset "No modified julia file" begin
         output_file = tempname()
         json_io = IOBuffer()
-        StaticLint.generate_report(String[], output_file, json_io)
+        StaticLint.generate_report(String[], output_file; json_output=json_io)
 
         json_report = JSON3.read(String(take!(json_io)))
         @test json_report[:source] == "StaticLint"
@@ -777,7 +775,7 @@ end
 
                 output_file = tempname()
                 json_io = IOBuffer()
-                StaticLint.generate_report([file1], output_file, json_io)
+                StaticLint.generate_report([file1], output_file; json_output=json_io)
 
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
@@ -817,7 +815,7 @@ end
 
                     output_file = tempname()
                     json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file, json_io)
+                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
 
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
@@ -852,7 +850,7 @@ end
 
                 output_file = tempname()
                 json_io = IOBuffer()
-                StaticLint.generate_report([file1], output_file, json_io)
+                StaticLint.generate_report([file1], output_file; json_output=json_io)
 
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
@@ -876,27 +874,28 @@ end
         @test result_matching
     end
 
-    @testset "Report generation of 1 file with no errors and github info" begin
+    @testset "Report generation of 1 file with 1 error and github info" begin
         local result_matching = false
         mktempdir() do dir
             file1 = joinpath(dir, "foo.jl")
             open(file1, "w") do io1
-                write(io1, "function f()\n  @spawn 1 + 1\nend\n")
+                write(io1, "function f()\n  @async 1 + 1\nend\n")
                 flush(io1)
 
                 output_file = tempname()
                 json_io = IOBuffer()
                 StaticLint.generate_report(
                     [file1],
-                    output_file,
-                    json_io,
-                    "RelationalAI/raicode",
-                    "axb-foo-bar")
+                    output_file;
+                    json_output=json_io,
+                    github_repository="RelationalAI/raicode",
+                    branch_name="axb-foo-bar",
+                    file_prefix_to_remove="var/")
 
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
-                @test json_report[:data][:errors_count] == 0
+                @test json_report[:data][:errors_count] == 1
 
                 local result
                 open(output_file) do oo
@@ -904,10 +903,7 @@ end
                 end
 
                 expected = r"""
-                    ## Static code analyzer report
-                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
-                    Report creation time \(UTC\): \H+
-                    🎉No potential threats are found over 1 Julia file.👍
+                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. at offset 15 of \H+
                     """
                 result_matching = !isnothing(match(expected, result))
             end
