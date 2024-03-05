@@ -341,7 +341,7 @@ the the Markdown report.
 """
 function generate_report(
     filenames::Vector{String},
-    output_filename::String,
+    output_filename::String;
     json_output::IO=stdout,
     github_repository::String="",
     branch_name::String=""
