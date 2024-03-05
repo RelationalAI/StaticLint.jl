@@ -875,6 +875,45 @@ end
         end
         @test result_matching
     end
+
+    @testset "Report generation of 1 file with no errors and github info" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n  @spawn 1 + 1\nend\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report(
+                    [file1],
+                    output_file,
+                    json_io,
+                    "RelationalAI/raicode",
+                    "axb-foo-bar")
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] == 1
+                @test json_report[:data][:errors_count] == 0
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+
+                expected = r"""
+                    ## Static code analyzer report
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    Report creation time \(UTC\): \H+
+                    🎉No potential threats are found over 1 Julia file.👍
+                    """
+                result_matching = !isnothing(match(expected, result))
+            end
+        end
+        @test result_matching
+    end
 end
 
 @testset "Running on a directory" begin
