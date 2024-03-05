@@ -88,7 +88,6 @@ const essential_options = LintOptions(true, false, true, true, true, true, true,
 const no_filters = LintCodes[]
 const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile]]
 
-
 # Return (line, column) for a given offset in a source
 function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filename::String)
     all_lines = open(io->readlines(io), filename)
@@ -133,7 +132,12 @@ end
 
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
-struct MarkdownFormat <: AbstractFormatter end
+struct MarkdownFormat <: AbstractFormatter
+    github_branch_name::String
+    github_repository_name::String
+    MarkdownFormat() = new("", "")
+    MarkdownFormat(branch::String, repo::String) = new(branch, repo)
+end
 
 """
     filter_and_print_hint(hint, io::IO=stdout, filters::Vector=[])
@@ -216,27 +220,21 @@ function print_footer(::PlainFormat, io::IO)
     printstyled(io, "-" ^ 10 * "\n\n", color=:blue)
 end
 
-function print_header(::MarkdownFormat, io::IO, rootpath::String)
-    # println(io, "**Output of the [StaticLint.jl code analyzer]\
-    #             (https://github.com/RelationalAI/StaticLint.jl) on file $(rootpath):**\n\
-    #             UTC time: ($(now()))")
-    return
-end
-
+print_header(::MarkdownFormat, io::IO, rootpath::String) = nothing
 print_footer(::MarkdownFormat, io::IO) = nothing
-function print_hint(::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    print(io, " - **$coordinates** $hint\n")
+function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
+    if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
+        line_number = split(coordinates, [' ', ','])[2]
+        file_name = last(split(hint, " "))
+        corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
+        extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
+        print(io, " - **$extended_coordinates** $hint\n")
+    else
+        print(io, " - **$coordinates** $hint\n")
+    end
 end
 
-function print_summary(::MarkdownFormat, io::IO, nb_hints::Int)
-    # if iszero(nb_hints)
-    #     print(io, "🎉No potential threats were found.👍\n\n")
-    # else
-    #     plural = nb_hints > 1 ? "s are" : " is"
-    #     println(io, "🚨**$(nb_hints) potential threat$(plural) found**🚨\n")
-    # end
-    return
-end
+print_summary(::MarkdownFormat, io::IO, nb_hints::Int) = nothing
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout)
@@ -276,7 +274,9 @@ end
 
 """
 file_name corresponds to a file name that is used to create the temporary file. This is
-useful to test some rules that depends on the filename
+useful to test some rules that depends on the filename.
+
+`directory` can be "src/Compiler". In that case, the file to be created is "tmp_julia_file.jl"
 """
 function run_lint_on_text(
     source::String;
@@ -287,10 +287,12 @@ function run_lint_on_text(
     directory::String = ""   # temporary directory to be created. If empty, let Julia decide
 )
     local tmp_file_name, tmp_dir
+    local correct_directory = ""
     if isempty(directory)
         tmp_file_name = tempname() * ".jl"
     else
-        tmp_dir = joinpath(tempdir(), directory)
+        correct_directory = first(directory) == '/' ? directory[2:end] : directory
+        tmp_dir = joinpath(tempdir(), correct_directory)
         mkpath(tmp_dir)
         tmp_file_name = joinpath(tmp_dir, "tmp_julia_file.jl")
     end
@@ -301,7 +303,7 @@ function run_lint_on_text(
     end
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
-    if !isempty(directory)
+    if !isempty(correct_directory)
         rm(tmp_file_name)
         rm(tmp_dir)
     end
@@ -325,6 +327,7 @@ function print_datadog_report(
     )
     println(json_output, JSON3.write(event))
 end
+
 """
     generate_report(filenames::Vector{String}, output_filename::String, json_output::IO=stdout)
 
@@ -332,11 +335,16 @@ Main entry point of StaticLint.jl. The function `generate_report` takes as argum
 of files on which lint has to process. A report is generated containing the result.
 
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
+
+When provided, `github_repository` and `branch_name` are used to have clickable linkgs in
+the the Markdown report.
 """
 function generate_report(
     filenames::Vector{String},
     output_filename::String,
-    json_output::IO=stdout
+    json_output::IO=stdout,
+    github_repository::String="",
+    branch_name::String=""
 )
     if isfile(output_filename)
         @error "File $output_filename exist already."
@@ -357,7 +365,7 @@ function generate_report(
                                     filename;
                                     io=output_io,
                                     filters=essential_filters,
-                                    formatter=MarkdownFormat())
+                                    formatter=MarkdownFormat(branch_name, github_repository))
         end
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)

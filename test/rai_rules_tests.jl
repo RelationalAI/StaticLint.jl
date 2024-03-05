@@ -4,6 +4,12 @@ import CSTParser
 using Test
 using JSON3
 
+function foo()
+    @async 1 + 2
+end
+
+const n = Threads.nthreads()
+
 function lint_test(source::String, expected_substring::String; verbose=true, directory::String = "")
     io = IOBuffer()
     run_lint_on_text(source; io, directory)
@@ -591,6 +597,42 @@ end
 
         expected = r"""
              - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+            """
+        @test !isnothing(match(expected, result))
+    end
+
+    @testset "Markdown 03 - with github information" begin
+        formatter = MarkdownFormat("axb-example-with-lint-errors", "RelationalAI/raicode")
+        io = IOBuffer()
+
+        run_lint_on_text(
+            source;
+            io,
+            filters=StaticLint.essential_filters,
+            formatter,
+            directory="/src/Compiler/")
+        result = String(take!(io))
+
+# https://github.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/contrib/rel/dependency-graph-visualizer.rel#L18
+        expected = r"""
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+            """
+        @test !isnothing(match(expected, result))
+    end
+
+    @testset "Markdown 04 - with github information" begin
+        formatter = MarkdownFormat("axb-example-with-lint-errors", "RelationalAI/raicode")
+        io = IOBuffer()
+        run_lint_on_text(
+            source;
+            io,
+            filters=StaticLint.essential_filters,
+            formatter,
+            directory="src/Compiler/")
+        result = String(take!(io))
+# https://github.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/contrib/rel/dependency-graph-visualizer.rel#L18
+        expected = r"""
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             """
         @test !isnothing(match(expected, result))
     end
