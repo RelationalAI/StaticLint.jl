@@ -1020,3 +1020,13 @@ end
         @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
     end
 end
+
+@testset "Relaxing unused bindings" begin
+    @test lint_test("""
+           function f(a::Int64, b, c)
+               local x
+               return 42
+           end
+           """, "Line 2, column 11: Variable has been assigned but not used.")
+
+end
