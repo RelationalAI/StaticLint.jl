@@ -1,4 +1,4 @@
-# This is a basic workflow to help you get started with Actions
+# This workflow run the StaticLint.jl on the file modified by the PR
 
 name: Run static code analyzer Lint
 
@@ -7,19 +7,6 @@ on:
     types: [ labeled, opened, synchronize ]
 
 jobs:
-  check_if_lint_must_be_run:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check if lint must be run
-      env:
-        HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build:lint') }}
-        ADDING_LABEL: ${{ github.event.label.name == 'build:lint'}}
-        SHOULD_RUN_LINT: ${{ contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint' }}
-      run: |
-        echo "HAS_LABEL: " ${HAS_LABEL}
-        echo "ADDING_LABEL: " ${LABEL_NAME}
-        echo "Should run lint: " ${SHOULD_RUN_LINT}
-
   run_lint:
     if: contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint'
     runs-on: ubuntu-latest
@@ -47,9 +34,6 @@ jobs:
     - name: Get changed files
       id: changed-files
       uses: tj-actions/changed-files@v42
-      # To compare changes between the current commit and the last pushed remote commit set `since_last_remote_commit: true`. e.g
-      # with:
-      #   since_last_remote_commit: true
 
     - name: List all changed files
       env:
@@ -60,11 +44,14 @@ jobs:
           echo "$file was changed"
         done
 
+    - name: Extract branch name
+      shell: bash
+      run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+      id: extract_branch
+
     - name: Run lint
-      run: bash StaticLint.jl/scripts/run_static_lint.sh
+      run: bash raicode/scripts/run_static_lint.sh "RelationalAI/StaticLint.jl" ${{ steps.extract_branch.outputs.branch }} "raicode/"
 
     - uses: mshick/add-pr-comment@v2
       with:
         message-path: result.txt
-        # refresh-message-position: true
-        # allow-repeats: true
