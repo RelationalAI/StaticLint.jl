@@ -86,7 +86,7 @@ global global_server = setup_server()
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
-const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile]]
+const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile, StaticLint.InvalidTypeDeclaration]]
 
 # Return (line, column) for a given offset in a source
 function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filename::String)
