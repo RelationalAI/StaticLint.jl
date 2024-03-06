@@ -732,7 +732,7 @@ end
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
                          - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. at offset 15 of \H+
-                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. at offset 37 of \H+
+                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. If you want to keep this variable unused then prefix it with `_`. at offset 37 of \H+
                         🚨\*\*In total, 3 errors are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
