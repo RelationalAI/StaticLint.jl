@@ -71,6 +71,10 @@ struct Channel_Extension <: ExtendedRule end
 struct Task_Extension <: ExtendedRule end
 struct ErrorException_Extension <: ExtendedRule end
 struct Error_Extension <: ExtendedRule end
+struct In_Extension <: ExtendedRule end
+struct HasKey_Extension <: ExtendedRule end
+struct Equal_Extension <: ExtendedRule end
+
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -217,3 +221,19 @@ function check(::Error_Extension, x::EXPR)
         "Use custom exception instead of the generic `error(...)`")
 end
 
+function check(::In_Extension, x::EXPR)
+    msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in`."
+    generic_check(x, "in(hole_variable,hole_variable)", msg)
+    generic_check(x, "hole_variable in hole_variable", msg)
+
+end
+
+function check(::HasKey_Extension, x::EXPR)
+    msg = "It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`."
+    generic_check(x, "haskey(hole_variable,hole_variable)", msg)
+end
+
+function check(::Equal_Extension, x::EXPR)
+    msg = "It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`."
+    generic_check(x, "equal(hole_variable,hole_variable)", msg)
+end
