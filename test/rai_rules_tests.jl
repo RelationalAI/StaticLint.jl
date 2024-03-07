@@ -5,12 +5,6 @@ import CSTParser
 using Test
 using JSON3
 
-function foo()
-    @async 1 + 2
-end
-
-const n = Threads.nthreads()
-
 function lint_test(source::String, expected_substring::String; verbose=true, directory::String = "")
     io = IOBuffer()
     run_lint_on_text(source; io, directory)

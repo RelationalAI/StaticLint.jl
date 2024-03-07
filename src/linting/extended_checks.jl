@@ -12,12 +12,16 @@ end
 
 comp(x, y) = x == y
 
+struct BothCannotHaveStarException <: Exception
+    msg::String
+end
+
 comp_value(x, y) = x == y
 function comp_value(x::String, y::String)
     is_there_any_star_marker = contains(x, "QQQ") || contains(y, "QQQ")
     !is_there_any_star_marker && return x == y
 
-    contains(x, "QQQ") && contains(y, "QQQ") && error("Cannot both $x and $y have a star marker")
+    contains(x, "QQQ") && contains(y, "QQQ") && throw(BothCannotHaveStarException("Cannot both $x and $y have a star marker"))
     if contains(x, "QQQ")
         reg_exp = Regex(replace(x, "QQQ" => ".*"))
         return !isnothing(match(reg_exp, y))
