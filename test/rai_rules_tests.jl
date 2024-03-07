@@ -5,6 +5,9 @@ import CSTParser
 using Test
 using JSON3
 
+# Reset the caches before running the tests.
+StaticLint.reset_static_lint_caches()
+
 function lint_test(source::String, expected_substring::String; verbose=true, directory::String = "")
     io = IOBuffer()
     run_lint_on_text(source; io, directory)
@@ -456,6 +459,26 @@ end
                 "Line 2, column 9: Need a specific Array type to be provided.",
                 directory = "src/Compiler/")
     end
+
+    @testset "in, equal, haskey" begin
+        source = """
+            function f()
+                x = 10 in [10]
+                y = in(10, [10])
+                z = equal(10, "hello")
+                w = haskey(Dict(1=>1000), 1)
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+        @test lint_test(source,
+            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+        @test lint_test(source,
+            "Line 4, column 9: It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`.")
+        @test lint_test(source,
+            "Line 5, column 9: It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`.")
+    end
 end
 
 @testset "Comparing AST to templates" begin
@@ -526,6 +549,10 @@ end
 
     @test t("foo(x, QQQzork)", "foo(x, zork)")
     @test t("foo(x, QQQzork)", "foo(x, blah_zork)")
+  
+    # in keyword
+    @test t("in(hole_variable,hole_variable)", "in(x,y)")
+    @test t("x in y", "hole_variable in hole_variable")
 end
 
 @testset "unsafe functions" begin
