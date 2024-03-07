@@ -460,13 +460,14 @@ end
                 directory = "src/Compiler/")
     end
 
-    @testset "in, equal, haskey" begin
+    @testset "in, equal, haskey, uv_" begin
         source = """
             function f()
                 x = 10 in [10]
                 y = in(10, [10])
                 z = equal(10, "hello")
                 w = haskey(Dict(1=>1000), 1)
+                a = uv_foo(10, 20)
             end
             """
         @test lint_has_error_test(source)
@@ -478,6 +479,8 @@ end
             "Line 4, column 9: It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`.")
         @test lint_test(source,
             "Line 5, column 9: It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`.")
+        @test lint_test(source,
+            "Line 6, column 9: `uv_` functions should be used with extreme caution.")
     end
 end
 
@@ -510,6 +513,7 @@ end
     @test t("foo(x, y, z)", "foo(hole_variable, hole_variable_star)")
 
     @test t("foo(x, y, z)", "foo(hole_variable_star)")
+    @test t("foo()", "foo(hole_variable_star)")
 
     @test t("Semaphore(10)", "Semaphore(hole_variable)")
     # Ideally, the next line should pass.
@@ -553,6 +557,7 @@ end
     # in keyword
     @test t("in(hole_variable,hole_variable)", "in(x,y)")
     @test t("x in y", "hole_variable in hole_variable")
+
 end
 
 @testset "unsafe functions" begin

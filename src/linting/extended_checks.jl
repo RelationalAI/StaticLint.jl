@@ -95,6 +95,8 @@ struct Unsafe_Extension <: ExtendedRule end
 struct In_Extension <: ExtendedRule end
 struct HasKey_Extension <: ExtendedRule end
 struct Equal_Extension <: ExtendedRule end
+struct Uv_Extension <: ExtendedRule end
+
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -270,4 +272,11 @@ end
 function check(::Equal_Extension, x::EXPR)
     msg = "It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`."
     generic_check(x, "equal(hole_variable,hole_variable)", msg)
+end
+
+function check(::Uv_Extension, x::EXPR)
+    generic_check(
+        x,
+        "uv_QQQ(hole_variable_star)",
+        "`uv_` functions should be used with extreme caution.")
 end
