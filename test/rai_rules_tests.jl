@@ -1,17 +1,12 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
-    convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat
+    convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
+    fetch_value
 import CSTParser
 using Test
 using JSON3
 
 # Reset the caches before running the tests.
 StaticLint.reset_static_lint_caches()
-
-function foo()
-    @async 1 + 2
-end
-
-const n = Threads.nthreads()
 
 function lint_test(source::String, expected_substring::String; verbose=true, directory::String = "")
     io = IOBuffer()
@@ -361,7 +356,7 @@ end
             "Line 12, column 10: `mmap` should be used with extreme caution.")
         @test lint_test(source,
             "Line 13, column 10: `mmap` should be used with extreme caution.")
-        @test lint_test(source,           
+        @test lint_test(source,
             "Line 14, column 12: `Future` should be used with extreme caution.")
         @test lint_test(source,
             "Line 15, column 12: `Future` should be used with extreme caution.")
@@ -486,7 +481,7 @@ end
     end
 end
 
-@testset "Comparison" begin
+@testset "Comparing AST to templates" begin
     t(s1, s2) = comp(CSTParser.parse(s1), CSTParser.parse(s2))
     @test t("Threads.nthreads()", "Threads.nthreads()")
     @test !t("QWEThreads.nthreads()", "Threads.nthreads()")
@@ -536,9 +531,87 @@ end
     @test !t("Future()", "Future{hole_variable}(hole_variable_star)")
     @test !t("Future{Any}() do f nothing end", "Future{hole_variable}(hole_variable_star)")
 
+    # Partial matching
+    @test t("foo", "foo")
+    @test t("fooQQQ", "foo")
+    @test t("QQQfoo", "foo")
+    @test t("QQQfooQQQ", "foo")
+
+    @test !t("foo", "foobar")
+    @test t("fooQQQ", "foobar")
+    @test t("QQQfoo", "barfoo")
+    @test t("QQQfooQQQ", "barfoozork")
+
+    @test !t("foo", "foo_bar")
+    @test t("fooQQQ", "foo_bar")
+    @test t("QQQfoo", "bar_foo")
+    @test t("QQQfooQQQ", "bar_foo_zork")
+
+    @test t("foo(x, QQQzork)", "foo(x, zork)")
+    @test t("foo(x, QQQzork)", "foo(x, blah_zork)")
+
     # in keyword
     @test t("in(hole_variable,hole_variable)", "in(x,y)")
     @test t("x in y", "hole_variable in hole_variable")
+end
+
+@testset "unsafe functions" begin
+    @testset "No error 01" begin
+        source = """
+            function unsafe_f()
+                unsafe_g()
+            end
+
+            function unsafe_g()
+                return 42
+            end
+            """
+        @test !lint_has_error_test(source)
+    end
+
+    @testset "Some errors 01" begin
+        source = """
+            function f()
+                unsafe_g()
+            end
+
+            function unsafe_g()
+                return 42
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 5: An `unsafe_` function should be called only from an `unsafe_` function.")
+    end
+
+    @testset "Some errors 02" begin
+        source = """
+            function f()
+                _unsafe_g()
+            end
+
+            function _unsafe_g()
+                return 42
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 2, column 5: An `unsafe_` function should be called only from an `unsafe_` function.")
+    end
+
+    @testset "No error 02" begin
+        source = """
+            function f()
+                # lint-disable-next-line
+                _unsafe_g()
+            end
+
+            function _unsafe_g()
+                return 42
+            end
+            """
+        @test !lint_has_error_test(source)
+    end
 end
 
 @testset "offset to line" begin
@@ -566,6 +639,25 @@ end
 
     @test should_be_filtered(hint_as_string1, filters)
     @test !should_be_filtered(hint_as_string2, filters)
+end
+
+@testset "Fetching values from AST" begin
+    @test fetch_value(CSTParser.parse("f"), :IDENTIFIER) == "f"
+    @test fetch_value(CSTParser.parse("f()"), :IDENTIFIER) == "f"
+    @test fetch_value(CSTParser.parse("begin f(g()) end"), :IDENTIFIER) == "f"
+
+    source = """
+            struct _SyncDict{Dict}
+                lock::Base.Threads.SpinLock
+                dict::Dict
+
+                function _SyncDict{Dict}() where {Dict}
+                    new{Dict}(Base.Threads.SpinLock(), Dict())
+                end
+            end
+            """
+    @test fetch_value(CSTParser.parse(source), :IDENTIFIER) == "_SyncDict"
+
 end
 
 @testset "Formatter" begin

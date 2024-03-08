@@ -11,10 +11,30 @@ function is_hole_variable_star(x::CSTParser.EXPR)
 end
 
 comp(x, y) = x == y
+
+struct BothCannotHaveStarException <: Exception
+    msg::String
+end
+
+comp_value(x, y) = x == y
+function comp_value(x::String, y::String)
+    is_there_any_star_marker = contains(x, "QQQ") || contains(y, "QQQ")
+    !is_there_any_star_marker && return x == y
+
+    contains(x, "QQQ") && contains(y, "QQQ") && throw(BothCannotHaveStarException("Cannot both $x and $y have a star marker"))
+    if contains(x, "QQQ")
+        reg_exp = Regex(replace(x, "QQQ" => ".*"))
+        return !isnothing(match(reg_exp, y))
+    else
+        reg_exp = Regex(replace(y, "QQQ" => ".*"))
+        return !isnothing(match(reg_exp, x))
+    end
+end
+
 function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
     (is_hole_variable(x) || is_hole_variable(y)) && return true
 
-    result = comp(x.head, y.head) && x.val == y.val
+    result = comp(x.head, y.head) && comp_value(x.val, y.val)
     !result && return false
 
     min_length = min(length(x), length(y))
@@ -71,10 +91,10 @@ struct Channel_Extension <: ExtendedRule end
 struct Task_Extension <: ExtendedRule end
 struct ErrorException_Extension <: ExtendedRule end
 struct Error_Extension <: ExtendedRule end
+struct Unsafe_Extension <: ExtendedRule end
 struct In_Extension <: ExtendedRule end
 struct HasKey_Extension <: ExtendedRule end
 struct Equal_Extension <: ExtendedRule end
-
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
 
@@ -221,11 +241,25 @@ function check(::Error_Extension, x::EXPR)
         "Use custom exception instead of the generic `error(...)`")
 end
 
+function check(::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
+    haskey(markers, :function) || return
+    isnothing(match(r"_unsafe_.*", markers[:function])) || return
+    isnothing(match(r"unsafe_.*", markers[:function])) || return
+
+    generic_check(
+        x,
+        "unsafe_QQQ(hole_variable_star)",
+        "An `unsafe_` function should be called only from an `unsafe_` function.")
+    generic_check(
+        x,
+        "_unsafe_QQQ(hole_variable_star)",
+        "An `unsafe_` function should be called only from an `unsafe_` function.")
+end
+
 function check(::In_Extension, x::EXPR)
     msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in`."
     generic_check(x, "in(hole_variable,hole_variable)", msg)
     generic_check(x, "hole_variable in hole_variable", msg)
-
 end
 
 function check(::HasKey_Extension, x::EXPR)

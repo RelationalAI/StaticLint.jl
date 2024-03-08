@@ -112,9 +112,28 @@ LintOptions(::Colon) = LintOptions(fill(true, length(default_options))...)
 LintOptions(options::Vararg{Union{Bool,Nothing},length(default_options)}) =
     LintOptions(something.(options, default_options)...)
 
+
+function fetch_value(x::EXPR, tag::Symbol)
+    if headof(x) == tag
+        return x.val
+    else
+        isnothing(x.args) && return nothing
+        for i in 1:length(x.args)
+            r = fetch_value(x.args[i], tag)
+            isnothing(r) || return r
+        end
+        return nothing
+    end
+end
+
 function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{Symbol,String}=Dict{Symbol,String}())
+    # Setting up the markers
     if headof(x) === :const
-        markers[:const] = "const"
+        markers[:const] = fetch_value(x, :IDENTIFIER)
+    end
+
+    if headof(x) === :function
+        markers[:function] = fetch_value(x, :IDENTIFIER)
     end
 
     # Do checks
@@ -145,9 +164,9 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
         end
     end
 
-    if headof(x) === :const
-        delete!(markers, :const)
-    end
+    # Do some cleaning
+    headof(x) === :const && delete!(markers, :const)
+    headof(x) === :function && delete!(markers, :function)
 end
 
 function _typeof(x, state)
