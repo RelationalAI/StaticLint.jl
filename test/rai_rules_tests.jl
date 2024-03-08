@@ -1138,6 +1138,29 @@ end
         @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
         @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
     end
+
+    @testset "Disable rule 01" begin
+        source = """
+        function f()
+            # lint-disable-next-line: Unsafe_Extension
+            @async unsafe_foo(42)
+        end
+        """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 11: `@async`")
+    end
+    @testset "Disable rule 02" begin
+        source = """
+        function f()
+            # lint-disable-next-line: Async_Extention
+            @async unsafe_foo(42)
+        end
+        """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 11: `unsafe`")
+    end
 end
 
 @testset "Relaxing unused bindings" begin
