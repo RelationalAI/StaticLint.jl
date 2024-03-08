@@ -99,6 +99,8 @@ function convert_offset_to_line(offset::Int, source::String)
 end
 
 
+# Return a triple: (index_line, index_column, annotation)
+# annotation could be either nothing, or :lint-disable-next-line
 function convert_offset_to_line_from_lines(offset::Int, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
@@ -389,9 +391,9 @@ function generate_report(
             if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
             elseif errors_count == 1
-                println(output_io, "🚨**In total, 1 error is found over $(length(julia_filenames)) Julia file$(ending)**🚨")
+                println(output_io, "🚨**In total, 1 potential threat is found over $(length(julia_filenames)) Julia file$(ending)**🚨")
             else
-                println(output_io, "🚨**In total, $(errors_count) errors are found over $(files_count) Julia file$(ending)**🚨")
+                println(output_io, "🚨**In total, $(errors_count) potential threats are found over $(files_count) Julia file$(ending)**🚨")
             end
         end
     end
