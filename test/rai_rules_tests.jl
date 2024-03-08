@@ -740,7 +740,6 @@ end
         expected = r"""
              - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
             """
-        println("DEBUG: $result")
         @test !isnothing(match(expected, result))
     end
 
@@ -1166,4 +1165,12 @@ end
                return 42
            end
            """)
+end
+
+@testset "IncorrectCallArgs" begin
+    source = """
+               f(x) = 1
+               f(1, 2)
+               """
+    @test lint_test(source, "Line 2, column 1: Possible method call error. Call of: f.")
 end
