@@ -249,11 +249,11 @@ function check(::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
     generic_check(
         x,
         "unsafe_QQQ(hole_variable_star)",
-        "`unsafe_` function can only be called from a `unsafe_` function.")
+        "An `unsafe_` function should be called only from an `unsafe_` function.")
     generic_check(
         x,
         "_unsafe_QQQ(hole_variable_star)",
-        "`unsafe_` function can only be called from a `unsafe_` function.")
+        "An `unsafe_` function should be called only from an `unsafe_` function.")
 end
 
 function check(::In_Extension, x::EXPR)

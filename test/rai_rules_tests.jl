@@ -356,7 +356,7 @@ end
             "Line 12, column 10: `mmap` should be used with extreme caution.")
         @test lint_test(source,
             "Line 13, column 10: `mmap` should be used with extreme caution.")
-        @test lint_test(source,           
+        @test lint_test(source,
             "Line 14, column 12: `Future` should be used with extreme caution.")
         @test lint_test(source,
             "Line 15, column 12: `Future` should be used with extreme caution.")
@@ -549,7 +549,7 @@ end
 
     @test t("foo(x, QQQzork)", "foo(x, zork)")
     @test t("foo(x, QQQzork)", "foo(x, blah_zork)")
-  
+
     # in keyword
     @test t("in(hole_variable,hole_variable)", "in(x,y)")
     @test t("x in y", "hole_variable in hole_variable")
@@ -581,7 +581,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: `unsafe_` function can only be called from a `unsafe_` function.")
+            "Line 2, column 5: An `unsafe_` function should be called only from an `unsafe_` function.")
     end
 
     @testset "Some errors 02" begin
@@ -596,7 +596,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: `unsafe_` function can only be called from a `unsafe_` function.")
+            "Line 2, column 5: An `unsafe_` function should be called only from an `unsafe_` function.")
     end
 
     @testset "No error 02" begin
