@@ -563,7 +563,8 @@ f(arg) = arg
         """)
             m_counts = StaticLint.func_nargs(cst.args[1])
             call_counts = StaticLint.call_nargs(cst.args[1].args[2].args[1])
-            @test StaticLint.errorof(cst.args[1].args[2].args[1]) === nothing
+            @test StaticLint.errorof(cst.args[1].args[2].args[1]) ===
+                "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation."
         end
         let cst = parse_and_pass("""
         function func(@nospecialize args...) end

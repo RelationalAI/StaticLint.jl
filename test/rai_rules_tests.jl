@@ -482,6 +482,11 @@ end
         @test lint_test(source,
             "Line 6, column 9: `uv_` functions should be used with extreme caution.")
     end
+
+    @testset "Splatting" begin
+        @test lint_test("hcat([f(x) for x in r]...)",
+            "Line 1, column 1: Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation.")
+    end
 end
 
 @testset "Comparing AST to templates" begin
@@ -558,6 +563,8 @@ end
     @test t("in(hole_variable,hole_variable)", "in(x,y)")
     @test t("x in y", "hole_variable in hole_variable")
 
+    # Splatting
+    @test t("f(a...)", "hole_variable(hole_variable_star...)")
 end
 
 @testset "unsafe functions" begin
