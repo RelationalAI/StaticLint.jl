@@ -172,11 +172,17 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
     # +1 is because CSTParser gives offset starting at 0.
     offset = Base.parse(Int64, offset_as_string) + 1
 
-    line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
+    # Remove the offset from the result. No need for this.
+    cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
+    try
+        line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
-    if isnothing(annotation_line)
-        print_hint(formatter, io, "Line $(line_number), column $(column):", hint_as_string)
-        return true
+        if isnothing(annotation_line)
+            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+            return true
+        end
+    catch
+        @error "Cannot retreive offset=$offset in file $filename"
     end
     return false
 end

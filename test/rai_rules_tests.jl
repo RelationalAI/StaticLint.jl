@@ -637,8 +637,8 @@ end
 
 @testset "Should be filtered" begin
     filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
-    hint_as_string1 = "Missing reference at offset 24104 of /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
-    hint_as_string2 = "Line 254, column 19: Possible method call error. at offset 8430 of /Users/alexandrebergel/Documents/RAI/raicode11/src/Compiler/Front/problems.jl"
+    hint_as_string1 = "Missing reference /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
+    hint_as_string2 = "Line 254, column 19: Possible method call error: foo /Users/alexandrebergel/Documents/RAI/raicode11/src/Compiler/Front/problems.jl"
     @test should_be_filtered(hint_as_string1, filters)
     @test !should_be_filtered(hint_as_string2, filters)
 
@@ -680,8 +680,8 @@ end
 
         expected = r"""
             ---------- \H+
-            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
-            Line 1, column 11: Missing reference at offset 10 of \H+
+            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
+            Line 1, column 11: Missing reference \H+
             2 potential threats are found
             ----------
             """
@@ -695,7 +695,7 @@ end
 
         expected = r"""
             ---------- \H+
-            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             1 potential threat is found
             ----------
             """
@@ -708,8 +708,8 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
-             - \*\*Line 1, column 11:\*\* Missing reference at offset 10 of \H+
+             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
+             - \*\*Line 1, column 11:\*\* Missing reference \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -720,7 +720,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -738,7 +738,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -754,7 +754,7 @@ end
             directory="src/Compiler/")
         result = String(take!(io))
         expected = r"""
-             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. at offset 10 of \H+
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -812,8 +812,8 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
@@ -853,9 +853,9 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
                         Report creation time \(UTC\): \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. at offset 15 of \H+
-                         - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. at offset 15 of \H+
-                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. If you want to keep this variable unused then prefix it with `_`. at offset 37 of \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. If you want to keep this variable unused then prefix it with `_`. \H+
                         🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
@@ -1026,7 +1026,7 @@ end
                 end
 
                 expected = r"""
-                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. at offset 15 of \H+
+                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
                     """
                 result_matching = !isnothing(match(expected, result))
             end
@@ -1172,5 +1172,5 @@ end
                f(x) = 1
                f(1, 2)
                """
-    @test lint_test(source, "Line 2, column 1: Possible method call error. Call of: f.")
+    @test lint_test(source, "Line 2, column 1: Possible method call error: f.")
 end

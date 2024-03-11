@@ -346,11 +346,16 @@ function check_call(x, env::ExternalEnv)
         tls === nothing && return @warn "Couldn't get top-level scope." # General check, this means something has gone wrong.
         func_ref === nothing && return
         if !sig_match_any(func_ref, x, call_counts, tls, env)
-            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-            # if func_ref.name isa SymbolServer.VarRef
-            #     isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-            # end
-            seterror!(x, "Possible method call error. Call of: $(fetch_value(func_ref.name, :IDENTIFIER)).")
+            if func_ref.name isa SymbolServer.VarRef &&
+                !isnothing(func_ref.name.parent) &&
+                func_ref.name.parent.name == :Base &&
+                !isnothing(func_ref.name.name)
+
+                func_ref.name.name in [:copy] && return
+            end
+            function_name = fetch_value(func_ref.name, :IDENTIFIER)
+            function_name in ["delete!", "copy", "copy!", "write", "hash", "iterate"] && return
+            seterror!(x, "Possible method call error: $(function_name).")
         end
     end
 end
