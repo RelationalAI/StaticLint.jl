@@ -96,6 +96,7 @@ struct In_Extension <: ExtendedRule end
 struct HasKey_Extension <: ExtendedRule end
 struct Equal_Extension <: ExtendedRule end
 struct Uv_Extension <: ExtendedRule end
+struct Splatting_Extension <: ExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
@@ -279,4 +280,11 @@ function check(::Uv_Extension, x::EXPR)
         x,
         "uv_QQQ(hole_variable_star)",
         "`uv_` functions should be used with extreme caution.")
+end
+
+function check(::Splatting_Extension, x::EXPR)
+    generic_check(
+        x,
+        "hole_variable(hole_variable_star...)",
+        "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in a severe performance degradation.")
 end
