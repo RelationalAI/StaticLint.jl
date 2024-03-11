@@ -113,6 +113,10 @@ LintOptions(options::Vararg{Union{Bool,Nothing},length(default_options)}) =
     LintOptions(something.(options, default_options)...)
 
 
+function fetch_value(x::SymbolServer.VarRef, tag::Symbol)
+    return x.name
+end
+
 function fetch_value(x::EXPR, tag::Symbol)
     if headof(x) == tag
         return x.val
@@ -341,7 +345,18 @@ function check_call(x, env::ExternalEnv)
         tls = retrieve_toplevel_scope(x)
         tls === nothing && return @warn "Couldn't get top-level scope." # General check, this means something has gone wrong.
         func_ref === nothing && return
-        !sig_match_any(func_ref, x, call_counts, tls, env) && seterror!(x, IncorrectCallArgs)
+        if !sig_match_any(func_ref, x, call_counts, tls, env)
+            if func_ref.name isa SymbolServer.VarRef &&
+                !isnothing(func_ref.name.parent) &&
+                func_ref.name.parent.name == :Base &&
+                !isnothing(func_ref.name.name)
+
+                func_ref.name.name in [:copy] && return
+            end
+            function_name = fetch_value(func_ref.name, :IDENTIFIER)
+            function_name in ["delete!", "copy", "copy!", "write", "hash", "iterate"] && return
+            seterror!(x, "Possible method call error: $(function_name).")
+        end
     end
 end
 

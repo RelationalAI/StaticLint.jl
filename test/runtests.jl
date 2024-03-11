@@ -292,7 +292,7 @@ f(arg) = arg
             let cst = parse_and_pass("""
             sin(1,2,3)
             """)
-                @test errorof(cst.args[1]) === StaticLint.IncorrectCallArgs
+                @test startswith(errorof(cst.args[1]), "Possible method call error")
             end
             let cst = parse_and_pass("""
                 for i in length(1) end
@@ -522,7 +522,9 @@ f(arg) = arg
         sin(1,2)
         """)
             @test StaticLint.errorof(cst.args[1]) === nothing
-            @test StaticLint.errorof(cst.args[2]) == StaticLint.IncorrectCallArgs
+            # @test StaticLint.errorof(cst.args[2]) == StaticLint.IncorrectCallArgs
+            @test startswith(errorof(cst[2]), "Possible method call error")
+
         end
 
         let cst = parse_and_pass("""
@@ -539,7 +541,8 @@ f(arg) = arg
         f(x) = 1
         f(1, 2)
         """)
-            @test StaticLint.errorof(cst.args[2]) === StaticLint.IncorrectCallArgs
+            # @test StaticLint.errorof(cst.args[2]) === StaticLint.IncorrectCallArgs
+            @test startswith(errorof(cst[2]), "Possible method call error")
         end
 
         let cst = parse_and_pass("""
@@ -1041,7 +1044,8 @@ f(arg) = arg
         """)
                 @test StaticLint.scopehasbinding(scopeof(cst), "adf")
                 @test !StaticLint.scopehasbinding(scopeof(cst.args[1]), "adf")
-                @test errorof(cst.args[2]) === StaticLint.IncorrectCallArgs
+                # @test errorof(cst.args[2]) === StaticLint.IncorrectCallArgs
+                @test startswith(errorof(cst[2]), "Possible method call error")
             end
             let cst = parse_and_pass("""
         for name in (:sdf, :asdf)
@@ -1051,7 +1055,9 @@ f(arg) = arg
         """)
                 @test StaticLint.scopehasbinding(scopeof(cst), "sdf")
                 @test !StaticLint.scopehasbinding(scopeof(cst.args[1]), "asdf")
-                @test errorof(cst[2]) === StaticLint.IncorrectCallArgs
+                # @test errorof(cst[2]) === StaticLint.IncorrectCallArgs
+                @test startswith(errorof(cst[2]), "Possible method call error")
+
             end
         end
     end
