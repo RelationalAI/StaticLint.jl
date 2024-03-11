@@ -485,7 +485,7 @@ end
 
     @testset "Splatting" begin
         @test lint_test("hcat([f(x) for x in r]...)",
-            "Line 1, column 1: Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in a severe performance degradation.")
+            "Line 1, column 1: Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation.")
     end
 end
 

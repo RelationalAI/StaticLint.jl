@@ -286,5 +286,5 @@ function check(::Splatting_Extension, x::EXPR)
     generic_check(
         x,
         "hole_variable(hole_variable_star...)",
-        "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in a severe performance degradation.")
+        "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation.")
 end
