@@ -140,6 +140,10 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
         markers[:function] = fetch_value(x, :IDENTIFIER)
     end
 
+    if headof(x) === :macrocall
+        markers[:macrocall] = fetch_value(x, :IDENTIFIER)
+    end
+
     # Do checks
     opts.call && check_call(x, env)
     opts.iter && check_loop_iter(x, env)
@@ -147,7 +151,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     opts.constif && check_if_conds(x)
     opts.lazy && check_lazy(x)
     opts.datadecl && check_datatype_decl(x, env)
-    opts.typeparam && check_typeparams(x)
+    opts.typeparam && check_typeparams(x, markers)
     opts.modname && check_modulename(x)
     opts.pirates && check_for_pirates(x)
     opts.useoffuncargs && check_farg_unused(x)
@@ -171,6 +175,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     # Do some cleaning
     headof(x) === :const && delete!(markers, :const)
     headof(x) === :function && delete!(markers, :function)
+    headof(x) === :macrocall && delete!(markers, :macrocall)
 end
 
 function _typeof(x, state)
@@ -793,7 +798,10 @@ end
 
 isunionfaketype(t::SymbolServer.FakeTypeName) = t.name.name === :Union && t.name.parent isa SymbolServer.VarRef && t.name.parent.name === :Core
 
-function check_typeparams(x::EXPR)
+function check_typeparams(x::EXPR, markers::Dict{Symbol,String})
+    haskey(markers, :macrocall) && markers[:macrocall] == "@match" && return
+    haskey(markers, :macrocall) && markers[:macrocall] == "@matchrule" && return
+
     if iswhere(x)
         for i in 2:length(x.args)
             a = x.args[i]

@@ -17,9 +17,21 @@ function lint_test(source::String, expected_substring::String; verbose=true, dir
     return result
 end
 
-function lint_has_error_test(source::String, verbose=false)
+function count_lint_errors(source::String, verbose=false; directory::String = "")
     io = IOBuffer()
-    run_lint_on_text(source; io=io)
+    run_lint_on_text(source; io, directory)
+    result = String(take!(io))
+    all_lines = split(result, "\n")
+
+    verbose && @info result
+    # We remove decorations
+    return length(filter(l->startswith(l, "Line "), all_lines))
+end
+
+
+function lint_has_error_test(source::String, verbose=false; directory::String = "")
+    io = IOBuffer()
+    run_lint_on_text(source; io, directory)
     result = String(take!(io))
     all_lines = split(result, "\n")
 
@@ -459,6 +471,39 @@ end
                 "Line 2, column 9: Need a specific Array type to be provided.",
                 directory = "src/Compiler/")
     end
+
+    @testset "Array with no specific type 03" begin
+        source = """
+            function f()
+                @matchrule bindings_empty() =
+                    Bindings([], _::Missing) => CoreBindings([])
+
+                @matchrule and_to_true() =
+                    And([], annos) => BoolConstant(true, annos)
+
+                @matchrule and_singleton() =
+                    And([f], annos) => f
+
+                @match CoreRelAbstract(bs2, [], as2) = e2
+
+                @matchrule and_to_true() =
+                    And([], annos) => BoolConstant(true, annos)
+
+                @matchrule exists_empty() =
+                    Exists(e, _) where is_definitely_empty_expr(e) =>
+                        slice_to_false(input_val)
+                f = []
+            end
+            """
+        count_errors = count_lint_errors(source; directory = "src/Compiler/")
+        @test count_errors == 1
+        @test lint_test(
+                source,
+                "Line 19, column 9: Need a specific Array type to be provided.";
+                directory = "src/Compiler")
+    end
+
+
 
     @testset "in, equal, haskey, uv_" begin
         source = """

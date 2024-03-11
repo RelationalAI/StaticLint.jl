@@ -209,6 +209,10 @@ check(::Ptr_Extension, x::EXPR) = generic_check(x, "Ptr{hole_variable}(hole_vari
 function check(::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :filename) || return
     contains(markers[:filename], "src/Compiler") || return
+
+    haskey(markers, :macrocall) && markers[:macrocall] == "@match" && return
+    haskey(markers, :macrocall) && markers[:macrocall] == "@matchrule" && return
+
     generic_check(x, "[]", "Need a specific Array type to be provided.")
 end
 
