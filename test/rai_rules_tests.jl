@@ -484,8 +484,11 @@ end
     end
 
     @testset "Splatting" begin
-        @test lint_test("hcat([f(x) for x in r]...)",
+        @test lint_test("f(x...) + 10",
             "Line 1, column 1: Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation.")
+
+        @test lint_test("hcat([f(x) for x in r]...)",
+            "Line 1, column 1: Splatting (`...`) must not be used with dynamically sized containers. This may result in performance degradation.")
     end
 end
 
@@ -565,6 +568,7 @@ end
 
     # Splatting
     @test t("f(a...)", "hole_variable(hole_variable_star...)")
+    @test t("hcat([f(x) for x in r]...)", "hole_variable([hole_variable(hole_variable_star) for hole_variable in hole_variable]...)")
 end
 
 @testset "unsafe functions" begin
