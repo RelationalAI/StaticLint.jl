@@ -354,12 +354,12 @@ function check(::Splatting_Extension, x::EXPR)
     generic_check(
         x,
         "hole_variable(hole_variable_star...)",
-        "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation. Splatting from statically-sized tuples is usually okay. This lint rule cannot determine if this is dynamic or static, so please check carefully.")
+        "Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation. Splatting from statically-sized tuples is usually okay. This lint rule cannot determine if this is dynamic or static, so please check carefully. See https://github.com/RelationalAI/RAIStyle#splatting for more information.")
 
     generic_check(
         x,
         "hole_variable([hole_variable(hole_variable_star) for hole_variable in hole_variable]...)",
-        "Splatting (`...`) must not be used with dynamically sized containers. This may result in performance degradation.")
+        "Splatting (`...`) should not be used with dynamically sized containers. This may result in performance degradation. See https://github.com/RelationalAI/RAIStyle#splatting for more information.")
 end
 
 function check(::UnreachableBranch_Extension, x::EXPR)
