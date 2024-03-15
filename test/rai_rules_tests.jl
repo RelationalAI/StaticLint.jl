@@ -614,6 +614,60 @@ end
     # Splatting
     @test t("f(a...)", "hole_variable(hole_variable_star...)")
     @test t("hcat([f(x) for x in r]...)", "hole_variable([hole_variable(hole_variable_star) for hole_variable in hole_variable]...)")
+
+    # Named variable holes
+    @test t("1 + 2", "1+hole_variableA")
+    @test t("1 + 2", "1+hole_variableB")
+    @test t("1 + 2 + 2", "1+hole_variableA+hole_variableA")
+    @test !t("1 + 2 + 2", "1+hole_variableA+hole_variableB")
+    @test t("1 + 2 + 3", "1+hole_variableA+hole_variableB")
+    @test t("1 + 2 + 3 + 2", "1+hole_variableA+hole_variable +hole_variableA")
+    @test t("1 + 2 + 3 + 2 + 10", "1+hole_variableA+hole_variable +hole_variableA + hole_variable_star")
+
+    @test !t("""
+        if x == 1
+            return 12
+        elseif x== 2
+            return "Reachable_branch"
+        end
+        """, """
+        if hole_variableA == hole_variableB
+            hole_variable
+        elseif hole_variableA == hole_variableB
+            hole_variable
+        end
+        """)
+
+    @test t("""
+        if x == 1
+            return 12
+        elseif x== 1
+            return "Reachable_branch"
+        end
+        """, """
+        if hole_variableA == hole_variableB
+            hole_variable
+        elseif hole_variableA == hole_variableB
+            hole_variable
+        end
+        """)
+
+
+    @test t("""
+        if x == 1
+            println("hello")
+            return 12
+        elseif x== 1
+            println("world")
+            return "Reachable_branch"
+        end
+        """, """
+        if hole_variableA == hole_variableB
+            hole_variable
+        elseif hole_variableA == hole_variableB
+            hole_variable
+        end
+        """)
 end
 
 @testset "unsafe functions" begin
@@ -1229,4 +1283,45 @@ end
                f(1, 2)
                """
     @test lint_test(source, "Line 2, column 1: Possible method call error: f.")
+end
+
+@testset "Branch" begin
+    @testset "Reachable branches" begin
+        source = """
+            function f(x)
+                if x == 1
+                    return 12
+                elseif x== 2
+                    return "Reachable_branch"
+                end
+            end
+            """
+        @test !lint_has_error_test(source)
+    end
+
+    @testset "Unreachable branches" begin
+        source = """
+            function f(x)
+                if x == 1
+                    return 12
+                elseif x== 1
+                    return "Unreachable_branch"
+                end
+            end
+            """
+        @test lint_test(source, "Line 2, column 5: Unreachable branch.")
+    end
+
+    @testset "Unreachable branches 02" begin
+        source = """
+            function f(x)
+                if x <= 1
+                    return 12
+                elseif x <= 1
+                    return "Unreachable_branch"
+                end
+            end
+            """
+        @test lint_test(source, "Line 2, column 5: Unreachable branch.")
+    end
 end
