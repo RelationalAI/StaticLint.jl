@@ -141,7 +141,10 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     end
 
     if headof(x) === :macrocall
-        markers[:macrocall] = fetch_value(x, :IDENTIFIER)
+        id = fetch_value(x, :IDENTIFIER)
+        if !isnothing(id)
+            markers[:macrocall] = id
+        end
     end
 
     # Do checks

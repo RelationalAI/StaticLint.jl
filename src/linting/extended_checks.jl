@@ -2,8 +2,15 @@
 #################################################################################
 # UTILITY FUNCTIONS
 #################################################################################
+function is_named_hole_variable(x::CSTParser.EXPR)
+    return x.head == :IDENTIFIER &&
+            startswith(x.val, "hole_variable") &&
+            x.val != "hole_variable_star" &&
+            length(x.val) > length("hole_variable")
+end
+
 function is_hole_variable(x::CSTParser.EXPR)
-    return x.head == :IDENTIFIER && x.val in ["hole_variable", "hole_variable_star"]
+    return x.head == :IDENTIFIER && startswith(x.val, "hole_variable")
 end
 
 function is_hole_variable_star(x::CSTParser.EXPR)
@@ -11,6 +18,7 @@ function is_hole_variable_star(x::CSTParser.EXPR)
 end
 
 comp(x, y) = x == y
+raw_comp(x, y, named_variable_holes) = x == y
 
 struct BothCannotHaveStarException <: Exception
     msg::String
@@ -21,7 +29,8 @@ function comp_value(x::String, y::String)
     is_there_any_star_marker = contains(x, "QQQ") || contains(y, "QQQ")
     !is_there_any_star_marker && return x == y
 
-    contains(x, "QQQ") && contains(y, "QQQ") && throw(BothCannotHaveStarException("Cannot both $x and $y have a star marker"))
+    contains(x, "QQQ") && contains(y, "QQQ") &&
+        throw(BothCannotHaveStarException("Cannot both $x and $y have a star marker"))
     if contains(x, "QQQ")
         reg_exp = Regex(replace(x, "QQQ" => ".*"))
         return !isnothing(match(reg_exp, y))
@@ -31,16 +40,32 @@ function comp_value(x::String, y::String)
     end
 end
 
-function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
+function raw_comp(
+    x::CSTParser.EXPR,
+    y::CSTParser.EXPR,
+    named_variable_holes::Vector
+)
+    # @info "debug:" x y
+    # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+
+    # If we bump into some named hole variables, then we record it.
+    if is_named_hole_variable(x)
+        push!(named_variable_holes, (x.val, y))
+    end
+    if is_named_hole_variable(y)
+        push!(named_variable_holes, (y.val, x))
+    end
+
+    # If one of element to be compared is a hole, then we have a match!
     (is_hole_variable(x) || is_hole_variable(y)) && return true
 
-    result = comp(x.head, y.head) && comp_value(x.val, y.val)
+    result = raw_comp(x.head, y.head, named_variable_holes) && comp_value(x.val, y.val)
     !result && return false
 
     min_length = min(length(x), length(y))
 
     for i in 1:min_length
-        comp(x[i], y[i]) || return false
+        raw_comp(x[i], y[i], named_variable_holes) || return false
         (is_hole_variable_star(x[i]) || is_hole_variable_star(y[i])) && return true
     end
 
@@ -55,6 +80,44 @@ function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
     end
 
     return false
+end
+
+function comp(x::CSTParser.EXPR, y::CSTParser.EXPR)
+    named_variable_holes = Vector()
+    result = raw_comp(x, y, named_variable_holes)
+
+    # If there is no or only one named variable hole, then we can exit
+    length(named_variable_holes) <= 1 && return result
+
+    all_hole_names = Set(first.(named_variable_holes))
+    hole_names_to_values = Dict{String, CSTParser.EXPR}()
+    # Else, we need to check that values under a unique named hole is the same
+    for k in all_hole_names
+        # Retrieve all the value for the named hole k
+        relevant = filter(tp->first(tp) == k, named_variable_holes)
+        relevant = map(tp->tp[2], relevant)
+
+        # If there are more than 1 value for a given named hole k, then there is no match.
+        first_relevant = relevant[1]
+        all_others = relevant[2:end]
+        all(r -> comp(first_relevant, r), all_others) || return false
+
+        hole_names_to_values[k] = first_relevant
+    end
+
+    # Utility functions
+    remove!(a, item) = deleteat!(a, findall(x->x==item, a))
+    remove(a, item) = deleteat!(copy(a), findall(x->x==item, a))
+
+    # At this point, we know that all the values for each named hole are the same.
+    # We now need to check if values for each named holes are different.
+    # If some values for two different named holes are the same, then there is no match
+    nh_values = collect(values(hole_names_to_values))
+    for v in nh_values
+        all_to_check = remove(nh_values, v)
+        any(k -> comp(k, v), all_to_check) && return false
+    end
+    return true
 end
 
 #################################################################################
@@ -97,6 +160,7 @@ struct HasKey_Extension <: ExtendedRule end
 struct Equal_Extension <: ExtendedRule end
 struct Uv_Extension <: ExtendedRule end
 struct Splatting_Extension <: ExtendedRule end
+struct UnreachableBranch_Extension <: ExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
@@ -296,4 +360,25 @@ function check(::Splatting_Extension, x::EXPR)
         x,
         "hole_variable([hole_variable(hole_variable_star) for hole_variable in hole_variable]...)",
         "Splatting (`...`) must not be used with dynamically sized containers. This may result in performance degradation.")
+end
+
+function check(::UnreachableBranch_Extension, x::EXPR)
+    generic_check(
+        x,
+        "if hole_variableA \
+            hole_variable \
+         elseif hole_variableA \
+            hole_variable \
+         end",
+        "Unreachable branch.")
+    generic_check(
+        x,
+        "if hole_variableA \
+            hole_variable \
+        elseif hole_variable \
+            hole_variable\
+        elseif hole_variableA \
+            hole_variable \
+        end",
+        "Unreachable branch.")
 end
