@@ -1,0 +1,14 @@
+name: Get modified lines
+on: [pull_request]
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get diff lines
+        id: diff
+        uses: Equip-Collaboration/diff-line-numbers@v1
+        with:
+          include: '["\\.js$", "\\.jsx$"]'
+          ignore: '["^dist/", "^bin/", "^www/"]'
+      - name: Print line numbers of changed lines
+        run: echo Line numbers = ${{ toJSON(steps.diff.outputs.lineNumbers) }}
