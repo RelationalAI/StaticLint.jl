@@ -189,6 +189,7 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
 end
 
 
+
 function _run_lint_on_dir(
     rootpath::String;
     server = global_server,
