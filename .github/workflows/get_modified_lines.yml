@@ -1,14 +1,13 @@
-name: Get modified lines
-on: [pull_request]
+name: Get modified lines2
+on: [ pull_request ]
+
 jobs:
-  example:
+  find_changed_lines:
     runs-on: ubuntu-latest
     steps:
-      - name: Get diff lines
-        id: diff
-        uses: Equip-Collaboration/diff-line-numbers@v1
-        with:
-          include: '["\\.jl$", "\\.jsx$"]'
-          ignore: '["^dist/", "^bin/", "^www/"]'
-      - name: Print line numbers of changed lines
-        run: echo Line numbers = ${{ toJSON(steps.diff.outputs.lineNumbers) }}
+      - uses: actions/checkout@v4
+      - name: Find changed lines
+        id: changed_lines
+        uses: hestonhoffman/changed-lines@v1
+      - name: Print changed lines
+        run: echo ${{ steps.changed_lines.outputs.changed_lines }}
