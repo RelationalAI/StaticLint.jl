@@ -177,12 +177,27 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
-        if isnothing(annotation_line)
+        # isdefined(Man, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        local error_type
+        cleaned_hint_without_filename = cleaned_hint[1:end-length(filename)-1]
+        if !(cleaned_hint_without_filename in keys(error_msg2type))
+            error_type = string(StaticLint.error_msg2type[cleaned_hint_without_filename])
+        else
+            error_type = nothing
+        end
+
+        function typestring_from_annotation(annotation::String)
+            isnothing(annotation) && return nothing
+            contains(annotation, ":") || return nothing
+            return split(annotation, ":")[2]
+        end
+        if isnothing(annotation_line) || typestring_from_annotation(annotation_line) !== error_type
             print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
             return true
         end
-    catch
-        @error "Cannot retreive offset=$offset in file $filename"
+    catch e
+        # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        @error "Cannot retreive offset=$offset in file $filename error=$e"
     end
     return false
 end
