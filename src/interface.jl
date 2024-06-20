@@ -170,6 +170,7 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
 
     offset_as_string = ss[length(ss) - 2]
     # +1 is because CSTParser gives offset starting at 0.
+
     offset = Base.parse(Int64, offset_as_string) + 1
 
     # Remove the offset from the result. No need for this.
