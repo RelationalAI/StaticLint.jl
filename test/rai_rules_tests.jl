@@ -756,6 +756,22 @@ end
     @test !should_be_filtered(hint_as_string2, filters)
 end
 
+@testset "Filtering on lines of files" begin
+    source = """
+        function f()
+            @async 1 + 1
+            @async 1 + 1
+            @async 1 + 1
+            @async 1 + 1
+            @async 1 + 1
+            @async 1 + 1
+            @async 1 + 1
+        end
+        """
+    isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    @test lint_test(source, """fdfds""")
+end
+
 @testset "Fetching values from AST" begin
     @test fetch_value(CSTParser.parse("f"), :IDENTIFIER) == "f"
     @test fetch_value(CSTParser.parse("f()"), :IDENTIFIER) == "f"

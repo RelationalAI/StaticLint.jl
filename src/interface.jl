@@ -269,7 +269,8 @@ function run_lint(
     server = global_server,
     io::IO=stdout,
     filters::Vector{LintCodes}=essential_filters,
-    formatter::AbstractFormatter=PlainFormat()
+    formatter::AbstractFormatter=PlainFormat(),
+    lines_to_reports_as_json::String="""{}"""
 )
     # If we are running Lint on a directory
     isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
@@ -302,7 +303,8 @@ function run_lint_on_text(
     io::IO=stdout,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat(),
-    directory::String = ""   # temporary directory to be created. If empty, let Julia decide
+    directory::String = "",   # temporary directory to be created. If empty, let Julia decide
+    lines_to_reports_as_json::String="{}"
 )
     local tmp_file_name, tmp_dir
     local correct_directory = ""
@@ -317,7 +319,7 @@ function run_lint_on_text(
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        run_lint(tmp_file_name; server, io, filters, formatter)
+        run_lint(tmp_file_name; server, io, filters, formatter, lines_to_reports_as_json)
     end
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
