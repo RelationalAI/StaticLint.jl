@@ -115,7 +115,7 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
             current_annotation = "lint-disable-line"
         elseif contains(line, "lint-disable-next-line:")
             annotation_previous_line = index_line + 1
-            msg_error = match(r".*: (?<msg>.*)", line)[:msg]
+            msg_error = match(r".*:\s*(?<msg>.*)", line)[:msg]
             current_annotation = "lint-disable-line $msg_error"
         elseif endswith(line, "lint-disable-line")
             annotation_previous_line = index_line
