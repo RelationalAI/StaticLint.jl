@@ -1171,6 +1171,11 @@ end
 
 @testset "Locally disabling lint" begin
     @testset "lint-disable-lint" begin
+        @test convert_offset_to_line(17, """
+            function f()
+                @async 1 + 2 # lint-disable-line
+            end
+            """) == (2, 4, "lint-disable-line")
         @test !lint_has_error_test("""
             function f()
                 @async 1 + 2 # lint-disable-line
@@ -1249,8 +1254,50 @@ end
             end
             """
         source_lines = split(source, "\n")
-        @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, Symbol("lint-disable-line"))
+        @test convert_offset_to_line_from_lines(46, source_lines) == (3, 4, "lint-disable-line")
         @test convert_offset_to_line_from_lines(64, source_lines) == (5, 4, nothing)
+    end
+
+    @testset "Locally disabling rule 01" begin
+        source = """
+        function f()
+            # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+            @async 1 + 1
+        end
+        """
+        source_lines = split(source, "\n")
+        @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+
+        @test !lint_has_error_test(source)
+    end
+
+    @testset "Locally disabling rule 02" begin
+        source = """
+        function f()
+            # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+            @async unsafe_foo(12)
+        end
+        """
+        source_lines = split(source, "\n")
+        @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 12: An `unsafe_` function should be called only from an `unsafe_` function.")
+    end
+
+    @testset "Locally disabling rule 03" begin
+        source = """
+        function f()
+            # lint-disable-next-line: An `unsafe_` function
+            @async unsafe_foo(42)
+        end
+        """
+        @test lint_has_error_test(source)
+        @test lint_test(source,
+            "Line 3, column 5: Macro `@spawn` should be used instead of `@async`.")
     end
 end
 
