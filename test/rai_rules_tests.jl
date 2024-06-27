@@ -1400,3 +1400,18 @@ end
         @test lint_test(source, "Line 2, column 5: Unreachable branch.")
     end
 end
+
+@testset "Recommentation separated from violations" begin
+    source = """
+    function f()
+        @async 1 + 1
+    end
+    function g()
+        @lock Lock() begin
+            1 + 1
+        end
+    end
+    """
+
+    run_lint_on_text(source)
+end

@@ -124,46 +124,54 @@ end
 # EXTENDED LINT RULES
 #################################################################################
 abstract type ExtendedRule end
-struct Async_Extention <: ExtendedRule end
-struct Ccall_Extention <: ExtendedRule end
-struct Pointer_from_objref_Extention <: ExtendedRule end
-struct NThreads_Extention <: ExtendedRule end
-struct Finalizer_Extention <: ExtendedRule end
-struct CFunction_Extension <: ExtendedRule end
-struct Semaphore_Extension <: ExtendedRule end
-struct Destructor_Extension <: ExtendedRule end
-struct ReentrantLock_Extension <: ExtendedRule end
-struct SpinLock_Extension <: ExtendedRule end
-struct Lock_Extension <: ExtendedRule end
-struct Unlock_Extension <: ExtendedRule end
-struct Yield_Extension <: ExtendedRule end
-struct Sleep_Extension <: ExtendedRule end
-struct Mmap_Extension <: ExtendedRule end
-struct Future_Extension <: ExtendedRule end
-struct Wait_Extension <: ExtendedRule end
-struct Fetch_Extension <: ExtendedRule end
-struct Inbounds_Extension <: ExtendedRule end
-struct Atomic_Extension <: ExtendedRule end
-struct Ptr_Extension <: ExtendedRule end
-struct ArrayWithNoType_Extension <: ExtendedRule end
-struct Threads_Extension <: ExtendedRule end
-struct Generated_Extension <: ExtendedRule end
-struct Sync_Extension <: ExtendedRule end
-struct RemovePage_Extension <: ExtendedRule end
-struct Channel_Extension <: ExtendedRule end
-struct Task_Extension <: ExtendedRule end
-struct ErrorException_Extension <: ExtendedRule end
-struct Error_Extension <: ExtendedRule end
-struct Unsafe_Extension <: ExtendedRule end
-struct In_Extension <: ExtendedRule end
-struct HasKey_Extension <: ExtendedRule end
-struct Equal_Extension <: ExtendedRule end
-struct Uv_Extension <: ExtendedRule end
-struct Splatting_Extension <: ExtendedRule end
-struct UnreachableBranch_Extension <: ExtendedRule end
+abstract type RecommendationExtendedRule <: ExtendedRule end
+abstract type ViolationExtendedRule <: ExtendedRule end
+
+struct Async_Extention <: ViolationExtendedRule end
+struct Ccall_Extention <: RecommendationExtendedRule end
+struct Pointer_from_objref_Extention <: RecommendationExtendedRule end
+struct NThreads_Extention <: ViolationExtendedRule end
+struct Finalizer_Extention <: RecommendationExtendedRule end
+struct CFunction_Extention <: RecommendationExtendedRule end
+struct Semaphore_Extension <: RecommendationExtendedRule end
+struct Destructor_Extension <: RecommendationExtendedRule end
+struct ReentrantLock_Extension <: RecommendationExtendedRule end
+struct SpinLock_Extension <: RecommendationExtendedRule end
+struct Lock_Extension <: RecommendationExtendedRule end
+struct Unlock_Extension <: RecommendationExtendedRule end
+struct Yield_Extension <: RecommendationExtendedRule end
+struct Sleep_Extension <: RecommendationExtendedRule end
+struct Mmap_Extension <: RecommendationExtendedRule end
+struct Future_Extension <: RecommendationExtendedRule end
+struct Wait_Extension <: RecommendationExtendedRule end
+struct Fetch_Extension <: RecommendationExtendedRule end
+struct Inbounds_Extension <: RecommendationExtendedRule end
+struct Atomic_Extension <: RecommendationExtendedRule end
+struct Ptr_Extension <: RecommendationExtendedRule end
+struct ArrayWithNoType_Extension <: ViolationExtendedRule end
+struct Threads_Extension <: ViolationExtendedRule end
+struct Generated_Extension <: RecommendationExtendedRule end
+struct Sync_Extension <: RecommendationExtendedRule end
+struct RemovePage_Extension <: ViolationExtendedRule end
+struct Channel_Extension <: RecommendationExtendedRule end
+struct Task_Extension <: ViolationExtendedRule end
+struct ErrorException_Extension <: ViolationExtendedRule end
+struct Error_Extension <: ViolationExtendedRule end
+struct Unsafe_Extension <: ViolationExtendedRule end
+struct In_Extension <: ViolationExtendedRule end
+struct HasKey_Extension <: ViolationExtendedRule end
+struct Equal_Extension <: ViolationExtendedRule end
+struct Uv_Extension <: ViolationExtendedRule end
+struct Splatting_Extension <: ViolationExtendedRule end
+struct UnreachableBranch_Extension <: ViolationExtendedRule end
 
 
-const all_extended_rule_types = Ref{Any}(InteractiveUtils.subtypes(ExtendedRule))
+const all_extended_rule_types = Ref{Any}(
+    vcat(
+        InteractiveUtils.subtypes(RecommendationExtendedRule),
+        InteractiveUtils.subtypes(ViolationExtendedRule),
+        )
+)
 
 # template -> EXPR to be compared
 const check_cache = Dict{String, CSTParser.EXPR}()
@@ -174,7 +182,10 @@ const error_msgs = Dict{String, String}()
 function reset_static_lint_caches()
     empty!(check_cache)
     empty!(error_msgs)
-    all_extended_rule_types[] = InteractiveUtils.subtypes(ExtendedRule)
+    all_extended_rule_types[] = vcat(
+        InteractiveUtils.subtypes(RecommendationExtendedRule),
+        InteractiveUtils.subtypes(ViolationExtendedRule),
+        )
     return nothing
 end
 
@@ -220,7 +231,7 @@ function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,String})
     generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
 end
 
-check(::CFunction_Extension, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
+check(::CFunction_Extention, x::EXPR) = generic_check(x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
 check(::Semaphore_Extension, x::EXPR) = generic_check(x, "Semaphore(hole_variable)", "`Semaphore` should be used with extreme caution.")
 check(::ReentrantLock_Extension, x::EXPR) = generic_check(x, "ReentrantLock()", "`ReentrantLock` should be used with extreme caution.")
 
