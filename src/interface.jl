@@ -88,7 +88,7 @@ const essential_options = LintOptions(true, false, true, true, true, true, true,
 const no_filters = LintCodes[]
 const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile, StaticLint.InvalidTypeDeclaration]]
 
-# Return (line, column) for a given offset in a source
+# Return (index_line, index_column, annotation) for a given offset in a source
 function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filename::String)
     all_lines = open(io->readlines(io), filename)
     return convert_offset_to_line_from_lines(offset, all_lines)
@@ -100,21 +100,31 @@ end
 
 
 # Return a triple: (index_line, index_column, annotation)
-# annotation could be either nothing, or :lint-disable-next-line
+# annotation could be either nothing, "lint-disable-line", or
+# "lint-disable-line ERROR_MSG_TO_IGNORE"
 function convert_offset_to_line_from_lines(offset::Int, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_index = 1
     annotation_previous_line = -1
     annotation = nothing
+    current_annotation = nothing
     for (index_line,line) in enumerate(all_lines)
         if endswith(line, "lint-disable-next-line")
-            annotation_previous_line = index_line+1
+            annotation_previous_line = index_line + 1
+            current_annotation = "lint-disable-line"
+        elseif contains(line, "lint-disable-next-line:")
+            annotation_previous_line = index_line + 1
+            msg_error = match(r".*:\s*(?<msg>.*)", line)[:msg]
+            current_annotation = "lint-disable-line $msg_error"
+        elseif endswith(line, "lint-disable-line")
+            annotation_previous_line = index_line
+            current_annotation = "lint-disable-line"
         end
 
         if offset in current_index:(current_index + length(line))
             if endswith(line, "lint-disable-line") || (index_line == annotation_previous_line)
-                annotation = Symbol("lint-disable-line")
+                annotation = current_annotation
             else
                 annotation = nothing
             end
@@ -124,7 +134,6 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
         end
         current_index += length(line) + 1 #1 is for the Return line
     end
-
     throw(BoundsError("source", offset))
 end
 
@@ -148,7 +157,7 @@ struct MarkdownFormat <: AbstractFormatter
 end
 
 """
-    filter_and_print_hint(hint, io::IO=stdout, filters::Vector=[])
+    filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::Vector=[])
 
 Essential function to filter and print a `hint_as_string`, being a String.
 Return true if the hint was printed, else it was filtered.
@@ -177,7 +186,30 @@ function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::V
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
-        if isnothing(annotation_line)
+        has_no_annotation = isnothing(annotation_line)
+        if has_no_annotation
+            # No annotation, so we merely print the reported error.
+            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+            return true
+        else
+            # there is an annotation, we need to distinguish if it is specific or not
+            is_generic_disable_annotation = annotation_line == "lint-disable-line"
+            if is_generic_disable_annotation
+                return false
+            end
+
+            is_specific_disable_annotation =
+                startswith(annotation_line, "lint-disable-line") &&
+                length(annotation_line) > length("lint-disable-line")
+
+            v = match(r"lint-disable-line (?<msg>.*)", annotation_line)
+            msg = isnothing(v) ? nothing : v[:msg]
+
+            # if it is specific, and the reported error is different from the provided error
+            # then we report the error
+            if is_specific_disable_annotation && startswith(cleaned_hint, msg)
+                return false
+            end
             print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
             return true
         end

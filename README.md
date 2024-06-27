@@ -85,6 +85,30 @@ function f2()
 end
 ```
 
+A specific rule can be locally disabled using `lint-disable-next-line:` taking as argument
+the message that has to be ignored. Consider this example:
+
+```Julia
+function f()
+    # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+    @async 1 + 1
+end
+```
+
+The instruction `@async 1 + 1` raises the error: Macro `@spawn` should be used instead of `@async`.
+Providing this error msg to the comment `lint-disable-next-line:` disabled it.
+
+Note that it is not necessary to have the full message. The beginning of it is enought. As
+such, the code above is equivalent to:
+
+```Julia
+function f()
+    # lint-disable-next-line: Macro `@spawn` should be used
+    @async 1 + 1
+end
+```
+
+
 ## Integration with GitHub Action
 In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
