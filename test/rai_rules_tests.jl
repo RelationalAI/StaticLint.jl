@@ -1,6 +1,6 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
     convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
-    fetch_value
+    fetch_value, rule_is_recommendation, rule_is_violation
 import CSTParser
 using Test
 using JSON3
@@ -1437,6 +1437,23 @@ end
         end
     end
     """
+    io=IOBuffer()
+    run_lint_on_text(source; io)
 
-    run_lint_on_text(source; io=IOBuffer())
+    @test !rule_is_recommendation("Macro `@spawn` should be used instead of `@async`.")
+    @test !rule_is_recommendation("Macro `@spawn`")
+    @test  rule_is_violation("Macro `@spawn` should be used instead of `@async`.")
+    @test  rule_is_violation("Macro `@spawn`")
+    @test  rule_is_recommendation("`@lock` should be used with extreme caution.")
+    @test  rule_is_recommendation("`@lock` ")
+    @test !rule_is_violation("`@lock` should be used with extreme caution.")
+    @test !rule_is_violation("`@lock` ")
+
+    @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
+        "`@lock` should be used with extreme caution."
+    @test StaticLint.retrieve_full_msg_from_prefix("Macro `@spawn`") ==
+        "Macro `@spawn` should be used instead of `@async`."
+
+    msg = "Macro `@spawn` should be used instead of `@async`."
+    @test StaticLint.retrieve_full_msg_from_prefix(msg) == msg
 end

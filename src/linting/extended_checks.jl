@@ -193,6 +193,25 @@ function reset_static_lint_caches()
     return nothing
 end
 
+function retrieve_full_msg_from_prefix(msg_prefix::String)
+    the_keys = collect(keys(StaticLint.is_recommendation))
+    is = findall(startswith(msg_prefix), the_keys)
+    @assert length(is) == 1
+    return the_keys[first(is)]
+end
+
+function get_recommendation(msg_prefix)
+    return is_recommendation[retrieve_full_msg_from_prefix(msg_prefix)]
+end
+
+function rule_is_recommendation(msg_prefix::String)
+    return get_recommendation(msg_prefix)
+end
+
+function rule_is_violation(msg_prefix::String)
+    return !get_recommendation(msg_prefix)
+end
+
 function get_oracle_ast(template_code::String)
     get!(check_cache, template_code, CSTParser.parse(template_code))
     return check_cache[template_code]
