@@ -386,8 +386,8 @@ of files on which lint has to process. A report is generated containing the resu
 
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
 
-When provided, `github_repository` and `branch_name` are used to have clickable linkgs in
-the the Markdown report.
+When provided, `github_repository` and `branch_name` are used to have clickable links in
+the Markdown report.
 """
 function generate_report(
     filenames::Vector{String},
