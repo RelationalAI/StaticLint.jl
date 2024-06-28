@@ -165,7 +165,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
 
     if opts.extended
         for T in all_extended_rule_types[]
-            check(T(), x, markers)
+            check_with_process(T, x, markers)
         end
     end
 

@@ -1401,6 +1401,31 @@ end
     end
 end
 
+@testset "Resetting StaticLint caches" begin
+    source = """
+    function f()
+        @async 1 + 1
+    end
+    function g()
+        @lock Lock() begin
+            1 + 1
+        end
+    end
+    """
+
+    run_lint_on_text(source; io=IOBuffer())
+
+    @test !isempty(StaticLint.check_cache)
+    @test !isempty(StaticLint.error_msgs)
+    @test !isempty(StaticLint.is_recommendation)
+
+    StaticLint.reset_static_lint_caches()
+
+    @test isempty(StaticLint.check_cache)
+    @test isempty(StaticLint.error_msgs)
+    @test isempty(StaticLint.is_recommendation)
+end
+
 @testset "Recommentation separated from violations" begin
     source = """
     function f()
@@ -1413,5 +1438,5 @@ end
     end
     """
 
-    run_lint_on_text(source)
+    run_lint_on_text(source; io=IOBuffer())
 end
