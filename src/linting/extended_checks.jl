@@ -162,7 +162,7 @@ struct In_Extension <: ViolationExtendedRule end
 struct HasKey_Extension <: ViolationExtendedRule end
 struct Equal_Extension <: ViolationExtendedRule end
 struct Uv_Extension <: ViolationExtendedRule end
-struct Splatting_Extension <: ViolationExtendedRule end
+struct Splatting_Extension <: RecommendationExtendedRule end
 struct UnreachableBranch_Extension <: ViolationExtendedRule end
 
 

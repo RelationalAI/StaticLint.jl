@@ -976,7 +976,10 @@ end
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
-                         - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+
+                        For PR Reviewer:
+                         - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+\
+
                         🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
@@ -1020,8 +1023,11 @@ end
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+
+                        For PR Reviewer:
                          - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
                          - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+
                         🚨\*\*In total, 4 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
@@ -1513,6 +1519,9 @@ end
     @test  rule_is_recommendation("`@lock` ")
     @test !rule_is_violation("`@lock` should be used with extreme caution.")
     @test !rule_is_violation("`@lock` ")
+
+    @test  rule_is_recommendation("Splatting (`...`) should be used with extreme caution.")
+
 
     @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
         "`@lock` should be used with extreme caution."

@@ -512,7 +512,12 @@ function generate_report(
             b += tb
         end
         print(output_io, String(take!(io_violations)))
-        print(output_io, String(take!(io_recommendations)))
+
+        recommendations = String(take!(io_recommendations))
+        if !isempty(recommendations)
+            println(output_io, "\nFor PR Reviewer:")
+            println(output_io, recommendations)
+        end
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
         ending = length(julia_filenames) > 1 ? "s" : ""
