@@ -34,7 +34,7 @@ function lint_string(s::String, server = setup_server(); gethints = false)
         for (offset, x) in collect_hints(f.cst, env)
             if haserror(x)
                 push!(hints, (x, LintCodeDescriptions[x.meta.error]))
-                push!(hints, (x, "Missing reference", " at offset ", offset))
+                push!(hints, (x, "Missing reference.", " at offset ", offset))
             end
         end
         return f.cst, hints
@@ -71,7 +71,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
                     end
-                    push!(hints_for_file, (x, string("Missing reference", " at offset ", offset, " of ", p)))
+                    push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", p)))
                 end
             end
             append!(hints, hints_for_file)
@@ -166,7 +166,12 @@ It takes the following arguments:
     - `io` stream where the hint is printed, if not filtered
     - `filters` the set of filters to be used
 """
-function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::Vector{LintCodes}=LintCodes[], formatter::AbstractFormatter=PlainFormat())
+function filter_and_print_hint(
+    hint_as_string::String,
+    io::IO=stdout,
+    filters::Vector{LintCodes}=LintCodes[],
+    formatter::AbstractFormatter=PlainFormat()
+)
     # Filter along the message
     should_be_filtered(hint_as_string, filters) && return false
 
@@ -253,12 +258,21 @@ function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
     println(io, hint)
 end
 
-function print_summary(::PlainFormat, io::IO, nb_hints::Int)
+function print_summary(
+    ::PlainFormat,
+    io::IO,
+    count_violations::Int,
+    count_recommendations::Int
+)
+    nb_hints = count_violations + count_recommendations
     if iszero(nb_hints)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
         plural = nb_hints > 1 ? "s are" : " is"
-        printstyled(io, "$(nb_hints) potential threat$(plural) found\n", color=:red)
+        plural_vio = count_violations > 1 ? "s" : ""
+        plural_rec = count_recommendations > 1 ? "s" : ""
+        printstyled(io, "$(nb_hints) potential threat$(plural) found: ", color=:red)
+        printstyled(io, "$(count_violations) violation$(plural_vio) and $(count_recommendations) recommendation$(plural_rec)\n", color=:red)
     end
 end
 
@@ -284,7 +298,7 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
 end
 
-print_summary(::MarkdownFormat, io::IO, nb_hints::Int) = nothing
+print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout)
@@ -315,11 +329,51 @@ function run_lint(
 
     print_header(formatter, io, rootpath)
 
-    filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-    number_of_error_found = length(filtered_and_printed_hints)
-    print_summary(formatter, io, number_of_error_found)
+    hint_as_strings = map(l -> l[2], hints)
+    hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
+    function extract_msg_from_hint(m)
+        r = match(r"(?<msg>.+)\. \H+", m)
+        return r[:msg] * "."
+    end
+
+    # msgs_from_hints = map(extract_msg_from_hint, hint_as_strings)
+
+    @assert all(h -> typeof(h) == String, hint_as_strings)
+
+
+    violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
+    recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
+
+    # filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
+
+    io_tmp = IOBuffer()
+    println(io_tmp, "Violations:")
+    filtered_and_printed_hints_violations =
+        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), violation_hints)
+    if !isempty(filtered_and_printed_hints_violations)
+        print(io, String(take!(io_tmp)))
+    end
+
+    io_tmp = IOBuffer()
+    println(io_tmp, "\nRecommendations:")
+
+    filtered_and_printed_hints_recommandations =
+        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), recommendation_hints)
+    println(io_tmp)
+    if !isempty(filtered_and_printed_hints_recommandations)
+        print(io, String(take!(io_tmp)))
+    end
+
+    count_violations = length(filtered_and_printed_hints_violations)
+    count_recommendations = length(filtered_and_printed_hints_recommandations)
+    print_summary(
+        formatter,
+        io,
+        count_violations,
+        count_recommendations
+    )
     print_footer(formatter, io)
-    return number_of_error_found
+    return count_violations + count_recommendations
 end
 
 """

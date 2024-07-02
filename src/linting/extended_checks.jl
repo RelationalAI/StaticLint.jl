@@ -179,13 +179,24 @@ const check_cache = Dict{String, CSTParser.EXPR}()
 # template -> error_msg
 const error_msgs = Dict{String, String}()
 
+function reset_recommentation_dict!(d::Dict{String, Bool})
+    # Violations
+    d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
+end
+
+function initialize_recommentation_dict()
+    r = Dict{String, Bool}()
+    reset_recommentation_dict!(r)
+    return r
+end
+
 # msg -> is recommendation
-const is_recommendation = Dict{String, Bool}()
+const is_recommendation = initialize_recommentation_dict()
 
 function reset_static_lint_caches()
     empty!(check_cache)
     empty!(error_msgs)
-    empty!(is_recommendation)
+    reset_recommentation_dict!(is_recommendation)
     all_extended_rule_types[] = vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
         InteractiveUtils.subtypes(ViolationExtendedRule),
@@ -196,20 +207,32 @@ end
 function retrieve_full_msg_from_prefix(msg_prefix::String)
     the_keys = collect(keys(StaticLint.is_recommendation))
     is = findall(startswith(msg_prefix), the_keys)
+
+    length(is) == 0 && return is
+
+    if length(is) != 1
+        isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    end
     @assert length(is) == 1
     return the_keys[first(is)]
 end
 
 function get_recommendation(msg_prefix)
-    return is_recommendation[retrieve_full_msg_from_prefix(msg_prefix)]
+    m = retrieve_full_msg_from_prefix(msg_prefix)
+    m in keys(is_recommendation) || return nothing
+    return is_recommendation[m]
 end
 
 function rule_is_recommendation(msg_prefix::String)
-    return get_recommendation(msg_prefix)
+    r = get_recommendation(msg_prefix)
+    isnothing(r) && return false
+    return r
 end
 
 function rule_is_violation(msg_prefix::String)
-    return !get_recommendation(msg_prefix)
+    r = get_recommendation(msg_prefix)
+    isnothing(r) && return false
+    return !r
 end
 
 function get_oracle_ast(template_code::String)
@@ -357,7 +380,7 @@ function check(t::ErrorException_Extension, x::EXPR)
         t,
         x,
         "ErrorException(hole_variable_star)",
-        "Use custom exception instead of the generic `ErrorException`")
+        "Use custom exception instead of the generic `ErrorException`.")
 end
 
 function check(t::Error_Extension, x::EXPR)
@@ -365,7 +388,7 @@ function check(t::Error_Extension, x::EXPR)
         t,
         x,
         "error(hole_variable)",
-        "Use custom exception instead of the generic `error(...)`")
+        "Use custom exception instead of the generic `error()`.")
 end
 
 function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})

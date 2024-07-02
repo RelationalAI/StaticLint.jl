@@ -442,7 +442,7 @@ end
         @test lint_test(source, "Line 33, column 9: `Task` should be used with extreme caution.")
 
         @test lint_test(source, "Line 40, column 11: Use custom exception instead of the generic `ErrorException`")
-        @test lint_test(source, "Line 43, column 9: Use custom exception instead of the generic `error(...)`")
+        @test lint_test(source, "Line 43, column 9: Use custom exception instead of the generic `error()`")
 
     end
 
@@ -747,7 +747,7 @@ end
 
 @testset "Should be filtered" begin
     filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
-    hint_as_string1 = "Missing reference /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
+    hint_as_string1 = "Missing reference. /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
     hint_as_string2 = "Line 254, column 19: Possible method call error: foo /Users/alexandrebergel/Documents/RAI/raicode11/src/Compiler/Front/problems.jl"
     @test should_be_filtered(hint_as_string1, filters)
     @test !should_be_filtered(hint_as_string2, filters)
@@ -783,20 +783,25 @@ end
            end
            """
 
-    @testset "Plain 01" begin
-        io = IOBuffer()
-        run_lint_on_text(source; io=io, filters=StaticLint.no_filters)
-        result = String(take!(io))
+    # Rules that are not violation or recommandations are not processed.
+    # @testset "Plain 01" begin
+    #     io = IOBuffer()
+    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters)
+    #     result = String(take!(io))
 
-        expected = r"""
-            ---------- \H+
-            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-            Line 1, column 11: Missing reference \H+
-            2 potential threats are found
-            ----------
-            """
-        @test !isnothing(match(expected, result))
-    end
+    #     expected = r"""
+    #         ---------- \H+
+    #         Violations:
+    #         Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
+    #         Line 1, column 11: Missing reference \H+
+
+    #         Recommendations:
+
+    #         1 potential threat is found: 1 violation and 0 recommendation
+    #         ----------
+    #         """
+    #     @test !isnothing(match(expected, result))
+    # end
 
     @testset "Plain 02" begin
         io = IOBuffer()
@@ -805,24 +810,31 @@ end
 
         expected = r"""
             ---------- \H+
+            Violations:
             Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-            1 potential threat is found
+            1 potential threat is found: 1 violation and 0 recommendation
             ----------
             """
         @test !isnothing(match(expected, result))
     end
 
-    @testset "Markdown 01" begin
-        io = IOBuffer()
-        run_lint_on_text(source; io=io, filters=StaticLint.no_filters, formatter=MarkdownFormat())
-        result = String(take!(io))
+    # Rules that are not violation or recommandations are not processed.
+    # @testset "Markdown 01" begin
+    #     io = IOBuffer()
+    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters, formatter=MarkdownFormat())
+    #     result = String(take!(io))
 
-        expected = r"""
-             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-             - \*\*Line 1, column 11:\*\* Missing reference \H+
-            """
-        @test !isnothing(match(expected, result))
-    end
+    #     expected = r"""
+    #         Violations:
+    #          - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
+    #          - \*\*Line 1, column 11:\*\* Missing reference. \H+
+
+    #         Recommendations:
+
+    #         """
+    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    #     @test !isnothing(match(expected, result))
+    # end
 
     @testset "Markdown 02" begin
         io = IOBuffer()
@@ -963,9 +975,14 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
                         Report creation time \(UTC\): \H+
+                        Violations:
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                        Violations:
+                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
+
+                        Recommendations:
                          - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
-                         - \*\*Line 2, column 25:\*\* Variable has been assigned but not used\. If you want to keep this variable unused then prefix it with `_`. \H+
+
                         🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
@@ -1335,7 +1352,7 @@ end
                local x
                return 42
            end
-           """, "Line 2, column 11: Variable has been assigned but not used.")
+           """, "Line 2, column 11: Variable has been assigned but not used")
 
     @test !lint_has_error_test("""
            function f(a::Int64, b, c)
@@ -1352,13 +1369,14 @@ end
            """)
 end
 
-@testset "IncorrectCallArgs" begin
-    source = """
-               f(x) = 1
-               f(1, 2)
-               """
-    @test lint_test(source, "Line 2, column 1: Possible method call error: f.")
-end
+# This rule is disabled per default. To add it, need to modify reset_recommentation_dict!()
+# @testset "IncorrectCallArgs" begin
+#     source = """
+#                f(x) = 1
+#                f(1, 2)
+#                """
+#     @test lint_test(source, "Line 2, column 1: Possible method call error: f.")
+# end
 
 @testset "Branch" begin
     @testset "Reachable branches" begin
@@ -1423,10 +1441,12 @@ end
 
     @test isempty(StaticLint.check_cache)
     @test isempty(StaticLint.error_msgs)
-    @test isempty(StaticLint.is_recommendation)
+
+    # is_recommendation should contains Lint default rules that we want to consider
+    @test !isempty(StaticLint.is_recommendation)
 end
 
-@testset "Recommentation separated from violations" begin
+@testset "Recommandation vs violation" begin
     source = """
     function f()
         @async 1 + 1
@@ -1456,4 +1476,39 @@ end
 
     msg = "Macro `@spawn` should be used instead of `@async`."
     @test StaticLint.retrieve_full_msg_from_prefix(msg) == msg
+end
+
+@testset "Recommandation vs violation - Default error msg" begin
+    @test rule_is_violation("Variable has been assigned but not used")
+    @test rule_is_violation("Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`.")
+    @test !rule_is_recommendation("Variable has been assigned but not used")
+end
+
+@testset "Recommentation separated from violations" begin
+    source = """
+    function f()
+        @async 1 + 1
+    end
+    function g()
+        @lock Lock() begin
+            1 + 1
+        end
+    end
+    """
+    io=IOBuffer()
+    run_lint_on_text(source; io)
+
+    result = String(take!(io))
+    expected = r"""
+    ---------- \H+
+    Violations:
+    Line 2, column 5: Macro `@spawn` should be used instead of `@async`\. \H+
+
+    Recommendations:
+    Line 5, column 5: `@lock` should be used with extreme caution\. \H+
+
+    2 potential threats are found: 1 violation and 1 recommendation
+    ----------
+    """
+    @test !isnothing(match(expected, result))
 end
