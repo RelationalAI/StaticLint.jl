@@ -810,7 +810,6 @@ end
 
         expected = r"""
             ---------- \H+
-            Violations:
             Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             1 potential threat is found: 1 violation and 0 recommendation
             ----------
@@ -887,9 +886,9 @@ end
         open(joinpath(dir, "foo.jl"), "w") do io
             write(io, "function f()\n  @async 1 + 1\nend\n")
             flush(io)
-            @test StaticLint.run_lint(dir; io) == 1
-            @test StaticLint.run_lint(dir; io) == 1
-            @test StaticLint.run_lint(dir; io) == 1
+            @test StaticLint.run_lint(dir; io) == (1, 0)
+            @test StaticLint.run_lint(dir; io) == (1, 0)
+            @test StaticLint.run_lint(dir; io) == (1, 0)
         end
     end
 end
@@ -908,7 +907,6 @@ end
 
                     str = IOBuffer()
                     StaticLint.run_lint(dir; io=str, formatter=StaticLint.MarkdownFormat())
-
                     result = String(take!(str))
                     result_is_empty = isempty(result)
                 end
@@ -971,21 +969,64 @@ end
                         result = read(oo, String)
                     end
 
+                    # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
                         Report creation time \(UTC\): \H+
-                        Violations:
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
-                        Violations:
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
-
-                        Recommendations:
                          - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
-
                         🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "Report generation of two files with errors 02" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            file2 = joinpath(dir, "bar.jl")
+            open(file1, "w") do io1
+                open(file2, "w") do io2
+                    write(io1, "function g()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+                    write(io2, "function f()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    output_file = tempname()
+                    json_io = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
+
+                    json_report = JSON3.read(String(take!(json_io)))
+                    @test json_report[:source] == "StaticLint"
+                    @test json_report[:data][:files_count] == 2
+                    @test json_report[:data][:errors_count] == 4
+
+                    local result
+                    open(output_file) do oo
+                        result = read(oo, String)
+                    end
+
+                    # First violations across files, then recommendations across files
+                    expected = r"""
+                        ## Static code analyzer report
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        Report creation time \(UTC\): \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+                        🚨\*\*In total, 4 potential threats are found over 2 Julia files\*\*🚨
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                    # DEBUG:
+                    !result_matching && @info result
                 end
             end
         end
@@ -1165,6 +1206,8 @@ end
 @testset "Running on a directory" begin
     @testset "Non empty directory" begin
         local r = 0
+        a = 0
+        b = 0
         formatters = [StaticLint.PlainFormat(), StaticLint.MarkdownFormat()]
         for formatter in formatters
             mktempdir() do dir
@@ -1172,16 +1215,18 @@ end
                     write(io, "function f()\n  @async 1 + 1\nend\n")
                     flush(io)
                     str = IOBuffer()
-                    r += StaticLint.run_lint(dir; io=str, formatter)
+                    ta, tb = StaticLint.run_lint(dir; io=str, formatter)
+                    a += ta
+                    b += tb
                 end
             end
         end
-        @test r == 2
+        @test (a + b) == 2
     end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-            @test iszero(StaticLint.run_lint(dir))
+            @test StaticLint.run_lint(dir) == (0, 0)
         end
     end
 end
@@ -1501,12 +1546,8 @@ end
     result = String(take!(io))
     expected = r"""
     ---------- \H+
-    Violations:
     Line 2, column 5: Macro `@spawn` should be used instead of `@async`\. \H+
-
-    Recommendations:
     Line 5, column 5: `@lock` should be used with extreme caution\. \H+
-
     2 potential threats are found: 1 violation and 1 recommendation
     ----------
     """

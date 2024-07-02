@@ -228,24 +228,32 @@ end
 function _run_lint_on_dir(
     rootpath::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
+    io_violations::Union{IO,Nothing}=nothing,
+    io_recommendations::Union{IO,Nothing}=nothing,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
-    local result = 0
+    local a, b
+    a = 0
+    b = 0
     for (root, dirs, files) in walkdir(rootpath)
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                result += run_lint(filename; server, io, filters, formatter)
+                ta, tb = run_lint(filename; server, io, io_violations, io_recommendations, filters, formatter)
+                a += ta
+                b += tb
             end
         end
 
         for dir in dirs
-            result += _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
+            ta, tb = _run_lint_on_dir(joinpath(root, dir); server, io, io_violations, io_recommendations, filters, formatter)
+            a += ta
+            b += tb
         end
     end
-    return result
+    return a, b
 end
 
 function print_header(::PlainFormat, io::IO, rootpath::String)
@@ -301,7 +309,7 @@ end
 print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
 
 """
-    run_lint(rootpath::String; server = global_server, io::IO=stdout)
+    run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
 
 Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return the
 number of identifide errors.
@@ -313,16 +321,18 @@ Example of use:
 function run_lint(
     rootpath::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
+    io_violations::Union{IO,Nothing}=nothing,
+    io_recommendations::Union{IO,Nothing}=nothing,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
     # If we are running Lint on a directory
-    isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
+    isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, io_violations, io_recommendations, filters, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
-    endswith(rootpath, ".jl") || return 0
+    endswith(rootpath, ".jl") || return 0, 0
 
     # We are running Lint on a Julia file
     _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
@@ -346,34 +356,34 @@ function run_lint(
 
     # filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
 
-    io_tmp = IOBuffer()
-    println(io_tmp, "Violations:")
+    io_tmp = isnothing(io_violations) ? io : io_violations
+    # println(io_tmp, "Violations:")
     filtered_and_printed_hints_violations =
         filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), violation_hints)
-    if !isempty(filtered_and_printed_hints_violations)
-        print(io, String(take!(io_tmp)))
-    end
+    # if !isempty(filtered_and_printed_hints_violations)
+    #     print(io, String(take!(io_tmp)))
+    # end
 
-    io_tmp = IOBuffer()
-    println(io_tmp, "\nRecommendations:")
+    io_tmp = isnothing(io_recommendations) ? io : io_recommendations
+    # println(io_tmp, "\nRecommendations:")
 
     filtered_and_printed_hints_recommandations =
         filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), recommendation_hints)
-    println(io_tmp)
-    if !isempty(filtered_and_printed_hints_recommandations)
-        print(io, String(take!(io_tmp)))
-    end
+    # println(io_tmp)
+    # if !isempty(filtered_and_printed_hints_recommandations)
+    #     print(io, String(take!(io_tmp)))
+    # end
 
     count_violations = length(filtered_and_printed_hints_violations)
     count_recommendations = length(filtered_and_printed_hints_recommandations)
-    print_summary(
-        formatter,
-        io,
-        count_violations,
-        count_recommendations
-    )
-    print_footer(formatter, io)
-    return count_violations + count_recommendations
+    # print_summary(
+    #     formatter,
+    #     io,
+    #     count_violations,
+    #     count_recommendations
+    # )
+    # print_footer(formatter, io)
+    return (count_violations, count_recommendations)
 end
 
 """
@@ -385,11 +395,13 @@ useful to test some rules that depends on the filename.
 function run_lint_on_text(
     source::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat(),
     directory::String = ""   # temporary directory to be created. If empty, let Julia decide
 )
+    io_violations = IOBuffer()
+    io_recommendations = IOBuffer()
     local tmp_file_name, tmp_dir
     local correct_directory = ""
     if isempty(directory)
@@ -400,11 +412,26 @@ function run_lint_on_text(
         mkpath(tmp_dir)
         tmp_file_name = joinpath(tmp_dir, "tmp_julia_file.jl")
     end
+
+    count_violations=0
+    count_recommendations=0
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        run_lint(tmp_file_name; server, io, filters, formatter)
+        count_violations, count_recommendations =
+            run_lint(tmp_file_name; server, io, io_violations, io_recommendations, filters, formatter)
     end
+
+    print(io, String(take!(io_violations)))
+    print(io, String(take!(io_recommendations)))
+
+    print_summary(
+        formatter,
+        io,
+        count_violations,
+        count_recommendations
+    )
+    print_footer(formatter, io)
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
     if !isempty(correct_directory)
@@ -467,19 +494,32 @@ function generate_report(
             Report creation time (UTC): ($(now()))")
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
+        a = 0
+        b = 0
+
+        io_violations = IOBuffer()
+        io_recommendations = IOBuffer()
+
         for filename in julia_filenames
-            errors_count += StaticLint.run_lint(
+            ta, tb = StaticLint.run_lint(
                                     filename;
-                                    io=output_io,
-                                    filters=essential_filters,
+                                    io = output_io,
+                                    io_violations = io_violations,
+                                    io_recommendations = io_recommendations,
+                                    filters = essential_filters,
                                     formatter)
+            a += ta
+            b += tb
         end
+        print(output_io, String(take!(io_violations)))
+        print(output_io, String(take!(io_recommendations)))
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
         ending = length(julia_filenames) > 1 ? "s" : ""
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
+            errors_count = a + b
             if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
             elseif errors_count == 1
