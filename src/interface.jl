@@ -34,7 +34,7 @@ function lint_string(s::String, server = setup_server(); gethints = false)
         for (offset, x) in collect_hints(f.cst, env)
             if haserror(x)
                 push!(hints, (x, LintCodeDescriptions[x.meta.error]))
-                push!(hints, (x, "Missing reference", " at offset ", offset))
+                push!(hints, (x, "Missing reference.", " at offset ", offset))
             end
         end
         return f.cst, hints
@@ -71,7 +71,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
                     end
-                    push!(hints_for_file, (x, string("Missing reference", " at offset ", offset, " of ", p)))
+                    push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", p)))
                 end
             end
             append!(hints, hints_for_file)
@@ -166,7 +166,12 @@ It takes the following arguments:
     - `io` stream where the hint is printed, if not filtered
     - `filters` the set of filters to be used
 """
-function filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::Vector{LintCodes}=LintCodes[], formatter::AbstractFormatter=PlainFormat())
+function filter_and_print_hint(
+    hint_as_string::String,
+    io::IO=stdout,
+    filters::Vector{LintCodes}=LintCodes[],
+    formatter::AbstractFormatter=PlainFormat()
+)
     # Filter along the message
     should_be_filtered(hint_as_string, filters) && return false
 
@@ -223,24 +228,32 @@ end
 function _run_lint_on_dir(
     rootpath::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
+    io_violations::Union{IO,Nothing}=nothing,
+    io_recommendations::Union{IO,Nothing}=nothing,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
-    local result = 0
+    local a, b
+    a = 0
+    b = 0
     for (root, dirs, files) in walkdir(rootpath)
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                result += run_lint(filename; server, io, filters, formatter)
+                ta, tb = run_lint(filename; server, io, io_violations, io_recommendations, filters, formatter)
+                a += ta
+                b += tb
             end
         end
 
         for dir in dirs
-            result += _run_lint_on_dir(joinpath(root, dir); server, io, filters, formatter)
+            ta, tb = _run_lint_on_dir(joinpath(root, dir); server, io, io_violations, io_recommendations, filters, formatter)
+            a += ta
+            b += tb
         end
     end
-    return result
+    return a, b
 end
 
 function print_header(::PlainFormat, io::IO, rootpath::String)
@@ -253,12 +266,21 @@ function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
     println(io, hint)
 end
 
-function print_summary(::PlainFormat, io::IO, nb_hints::Int)
+function print_summary(
+    ::PlainFormat,
+    io::IO,
+    count_violations::Int,
+    count_recommendations::Int
+)
+    nb_hints = count_violations + count_recommendations
     if iszero(nb_hints)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
         plural = nb_hints > 1 ? "s are" : " is"
-        printstyled(io, "$(nb_hints) potential threat$(plural) found\n", color=:red)
+        plural_vio = count_violations > 1 ? "s" : ""
+        plural_rec = count_recommendations > 1 ? "s" : ""
+        printstyled(io, "$(nb_hints) potential threat$(plural) found: ", color=:red)
+        printstyled(io, "$(count_violations) violation$(plural_vio) and $(count_recommendations) recommendation$(plural_rec)\n", color=:red)
     end
 end
 
@@ -284,10 +306,10 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
 end
 
-print_summary(::MarkdownFormat, io::IO, nb_hints::Int) = nothing
+print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
 
 """
-    run_lint(rootpath::String; server = global_server, io::IO=stdout)
+    run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
 
 Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return the
 number of identifide errors.
@@ -299,27 +321,69 @@ Example of use:
 function run_lint(
     rootpath::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
+    io_violations::Union{IO,Nothing}=nothing,
+    io_recommendations::Union{IO,Nothing}=nothing,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
     # If we are running Lint on a directory
-    isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, filters, formatter)
+    isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, io_violations, io_recommendations, filters, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
-    endswith(rootpath, ".jl") || return 0
+    endswith(rootpath, ".jl") || return 0, 0
 
     # We are running Lint on a Julia file
     _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
 
     print_header(formatter, io, rootpath)
 
-    filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-    number_of_error_found = length(filtered_and_printed_hints)
-    print_summary(formatter, io, number_of_error_found)
-    print_footer(formatter, io)
-    return number_of_error_found
+    hint_as_strings = map(l -> l[2], hints)
+    hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
+    function extract_msg_from_hint(m)
+        r = match(r"(?<msg>.+)\. \H+", m)
+        return r[:msg] * "."
+    end
+
+    # msgs_from_hints = map(extract_msg_from_hint, hint_as_strings)
+
+    @assert all(h -> typeof(h) == String, hint_as_strings)
+
+
+    violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
+    recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
+
+    # filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
+
+    io_tmp = isnothing(io_violations) ? io : io_violations
+    # println(io_tmp, "Violations:")
+    filtered_and_printed_hints_violations =
+        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), violation_hints)
+    # if !isempty(filtered_and_printed_hints_violations)
+    #     print(io, String(take!(io_tmp)))
+    # end
+
+    io_tmp = isnothing(io_recommendations) ? io : io_recommendations
+    # println(io_tmp, "\nRecommendations:")
+
+    filtered_and_printed_hints_recommandations =
+        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), recommendation_hints)
+    # println(io_tmp)
+    # if !isempty(filtered_and_printed_hints_recommandations)
+    #     print(io, String(take!(io_tmp)))
+    # end
+
+    count_violations = length(filtered_and_printed_hints_violations)
+    count_recommendations = length(filtered_and_printed_hints_recommandations)
+    # print_summary(
+    #     formatter,
+    #     io,
+    #     count_violations,
+    #     count_recommendations
+    # )
+    # print_footer(formatter, io)
+    return (count_violations, count_recommendations)
 end
 
 """
@@ -331,11 +395,13 @@ useful to test some rules that depends on the filename.
 function run_lint_on_text(
     source::String;
     server = global_server,
-    io::IO=stdout,
+    io::Union{IO,Nothing}=stdout,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat(),
     directory::String = ""   # temporary directory to be created. If empty, let Julia decide
 )
+    io_violations = IOBuffer()
+    io_recommendations = IOBuffer()
     local tmp_file_name, tmp_dir
     local correct_directory = ""
     if isempty(directory)
@@ -346,11 +412,26 @@ function run_lint_on_text(
         mkpath(tmp_dir)
         tmp_file_name = joinpath(tmp_dir, "tmp_julia_file.jl")
     end
+
+    count_violations=0
+    count_recommendations=0
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        run_lint(tmp_file_name; server, io, filters, formatter)
+        count_violations, count_recommendations =
+            run_lint(tmp_file_name; server, io, io_violations, io_recommendations, filters, formatter)
     end
+
+    print(io, String(take!(io_violations)))
+    print(io, String(take!(io_recommendations)))
+
+    print_summary(
+        formatter,
+        io,
+        count_violations,
+        count_recommendations
+    )
+    print_footer(formatter, io)
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
     if !isempty(correct_directory)
@@ -386,8 +467,8 @@ of files on which lint has to process. A report is generated containing the resu
 
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
 
-When provided, `github_repository` and `branch_name` are used to have clickable linkgs in
-the the Markdown report.
+When provided, `github_repository` and `branch_name` are used to have clickable links in
+the Markdown report.
 """
 function generate_report(
     filenames::Vector{String},
@@ -413,12 +494,29 @@ function generate_report(
             Report creation time (UTC): ($(now()))")
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
+        a = 0
+        b = 0
+
+        io_violations = IOBuffer()
+        io_recommendations = IOBuffer()
+
         for filename in julia_filenames
-            errors_count += StaticLint.run_lint(
+            ta, tb = StaticLint.run_lint(
                                     filename;
-                                    io=output_io,
-                                    filters=essential_filters,
+                                    io = output_io,
+                                    io_violations = io_violations,
+                                    io_recommendations = io_recommendations,
+                                    filters = essential_filters,
                                     formatter)
+            a += ta
+            b += tb
+        end
+        print(output_io, String(take!(io_violations)))
+
+        recommendations = String(take!(io_recommendations))
+        if !isempty(recommendations)
+            println(output_io, "\nFor PR Reviewer:")
+            println(output_io, recommendations)
         end
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
@@ -426,6 +524,7 @@ function generate_report(
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
+            errors_count = a + b
             if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
             elseif errors_count == 1

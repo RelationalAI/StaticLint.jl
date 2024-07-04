@@ -55,7 +55,7 @@ const LintCodeDescriptions = Dict{LintCodes,String}(
     EqInIfConditional => "Unbracketed assignment in if conditional statements is not allowed, did you mean to use ==?",
     PointlessOR => "The first argument of a `||` call is a boolean literal.",
     PointlessAND => "The first argument of a `&&` call is a boolean literal.",
-    UnusedBinding => "Variable has been assigned but not used. If you want to keep this variable unused then prefix it with `_`.",
+    UnusedBinding => "Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`.",
     InvalidTypeDeclaration => "A non-DataType has been used in a type declaration statement.",
     UnusedTypeParameter => "A DataType parameter has been specified but not used.",
     IncludeLoop => "Loop detected, this file has already been included.",
@@ -78,7 +78,7 @@ const LintCodeDescriptions = Dict{LintCodes,String}(
     IndexFromLength => "Indexing with indices obtained from `length`, `size` etc is discouraged. Use `eachindex` or `axes` instead.",
     FileTooBig => "File too big, not following include.",
     FileNotAvailable => "File not available.",
-    MissingReference => "Missing reference",
+    MissingReference => "Missing reference.",
 )
 
 haserror(m::Meta) = m.error !== nothing
@@ -165,7 +165,7 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
 
     if opts.extended
         for T in all_extended_rule_types[]
-            check(T(), x, markers)
+            check_with_process(T, x, markers)
         end
     end
 

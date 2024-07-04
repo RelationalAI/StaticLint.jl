@@ -12,6 +12,9 @@ permissions:
   actions: write
   contents: read
 
+env:
+  JULIA_DEBUG: loading
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
