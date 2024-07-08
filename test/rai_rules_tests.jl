@@ -984,7 +984,7 @@ end
 
                         </details>
 
-                        🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
+                        🚨\*\*In total, 2 rule violations and 1 PR reviewer recommendation are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
                     # DEBUG:
@@ -1038,7 +1038,7 @@ end
 
                         </details>
 
-                        🚨\*\*In total, 4 potential threats are found over 2 Julia files\*\*🚨
+                        🚨\*\*In total, 2 rule violations and 2 PR reviewer recommendations are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
                     # DEBUG:
