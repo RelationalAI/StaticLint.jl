@@ -533,10 +533,12 @@ function generate_report(
             errors_count = a + b
             if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
-            elseif errors_count == 1
-                println(output_io, "🚨**In total, 1 potential threat is found over $(length(julia_filenames)) Julia file$(ending)**🚨")
             else
-                println(output_io, "🚨**In total, $(errors_count) potential threats are found over $(files_count) Julia file$(ending)**🚨")
+                s_vio = a > 1 ? "s" : ""
+                s_rec = b > 1 ? "s" : ""
+                is_or_are = errors_count == 1 ? "is" : "are"
+                s_fil = files_count > 1 ? "s" : ""
+                println(output_io, "🚨**In total, $(a) rule violation$(s_vio) and $(b) PR reviewer recommendation$(s_rec) $(is_or_are) found over $(files_count) Julia file$(s_fil)**🚨")
             end
         end
     end
