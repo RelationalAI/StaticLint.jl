@@ -1405,6 +1405,21 @@ end
 
         @test !lint_has_error_test(source)
     end
+
+
+    @testset "Locally disabling rule 06: ignoring backquotes" begin
+        source = """
+        function f()
+            # lint-disable-next-line:  Macro @spawn should be used instead of @async.
+            @async 1 + 1
+        end
+        """
+        source_lines = split(source, "\n")
+        @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
+        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 6, "lint-disable-line Macro @spawn should be used instead of @async.")
+
+        @test !lint_has_error_test(source)
+    end
 end
 
 @testset "Relaxing unused bindings" begin
@@ -1530,7 +1545,18 @@ end
     @test !rule_is_violation("`@lock` should be used with extreme caution.")
     @test !rule_is_violation("`@lock` ")
 
+    # Ignoring backquoting
+    @test  rule_is_violation("Macro @spawn should be used instead of `@async.")
+    @test  rule_is_violation("Macro @spawn")
+    @test !rule_is_violation("@lock should be used with extreme caution.")
+    @test !rule_is_violation("`@lock ")
+
     @test  rule_is_recommendation("Splatting (`...`) should be used with extreme caution.")
+
+
+    # Ignoring backquoting
+    @test StaticLint.retrieve_full_msg_from_prefix("@lock ") ==
+        "`@lock` should be used with extreme caution."
 
 
     @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
