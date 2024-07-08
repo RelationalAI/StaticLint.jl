@@ -519,6 +519,7 @@ function generate_report(
             println(output_io, """
                                 <details>
                                 <summary>For PR Reviewer ($b)</summary>
+
                                 $(recommendations)
                                 </details>
                                 """)
