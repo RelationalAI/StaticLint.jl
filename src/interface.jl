@@ -515,8 +515,11 @@ function generate_report(
 
         recommendations = String(take!(io_recommendations))
         if !isempty(recommendations)
-            println(output_io, "\nFor PR Reviewer:")
-            println(output_io, recommendations)
+            println(output_io, "\n")
+            println(output_io, "<details>
+                                <summary>For PR Reviewer ($b)</summary>
+                                $(recommendations)
+                                </details>")
         end
 
         has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
