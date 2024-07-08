@@ -1,3 +1,20 @@
+#################################################################################
+# This file contains many specific and extended rules for Lint.
+# You probably needs to modify this files if:
+#   - you wish to add a new lint rule
+#   - document an existing rule
+#
+# If you wish to add a new Lint rule, you need:
+#   1. Define a new type, subtype of RecommendationExtendedRule or ViolationExtendedRule
+#   2. Write a new function function check(t::YOUR_NEW_TYPE, x::EXPR)
+#   3. Add your unit tests in rai_rules_tests.jl
+#   4. Restart your REPL if you use it
+#
+# If you wish to modify the report produced by Lint, interface.jl
+# is probably the place to start, not this file.
+#################################################################################
+
+
 
 #################################################################################
 # UTILITY FUNCTIONS
@@ -46,7 +63,7 @@ function raw_comp(
     named_variable_holes::Vector
 )
     # @info "debug:" x y
-    # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    # Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
 
     # If we bump into some named hole variables, then we record it.
     if is_named_hole_variable(x)
