@@ -533,7 +533,7 @@ end
             "Line 1, column 1: Splatting (`...`) should be used with extreme caution. Splatting from dynamically sized containers could result in severe performance degradation.")
 
         @test lint_test("hcat([f(x) for x in r]...)",
-            "Line 1, column 1: Splatting (`...`) must not be used with dynamically sized containers. This may result in performance degradation.")
+            "Line 1, column 1: Splatting (`...`) should not be used with dynamically sized containers. This may result in performance degradation. See https://github.com/RelationalAI/RAIStyle#splatting for more information.")
     end
 end
 
@@ -977,12 +977,18 @@ end
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
 
-                        For PR Reviewer:
+                        <details>
+                        <summary>For PR Reviewer \(1\)</summary>
+
                          - \*\*Line 2, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+\
+
+                        </details>
 
                         🚨\*\*In total, 3 potential threats are found over 2 Julia files\*\*🚨
                         """
                     result_matching = !isnothing(match(expected, result))
+                    # DEBUG:
+                    !result_matching && @info result
                 end
             end
         end
@@ -1024,9 +1030,13 @@ end
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
 
-                        For PR Reviewer:
+                        <details>
+                        <summary>For PR Reviewer \(2\)</summary>
+
                          - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
                          - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+
+                        </details>
 
                         🚨\*\*In total, 4 potential threats are found over 2 Julia files\*\*🚨
                         """
