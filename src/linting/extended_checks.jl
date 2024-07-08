@@ -449,11 +449,6 @@ function check(t::Uv_Extension, x::EXPR)
         "`uv_` functions should be used with extreme caution.")
 end
 
-function f()
-    @sync (1 + 2)
-    @lock Lock() 1 + 2
-end
-
 function check(t::Splatting_Extension, x::EXPR)
     generic_check(
         t,
