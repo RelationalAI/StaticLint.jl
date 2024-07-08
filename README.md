@@ -1,6 +1,6 @@
 # StaticLint.jl
 
-StaticLint is a static code analyzer for Julia. It runs some rules on Julia source code.
+StaticLint is a static code analyzer for Julia. It searches for patterns in Julia source code, such patterns aiming to indicate issues and deserve to be reported to the end-user.
 
 ## Basic usage
 
