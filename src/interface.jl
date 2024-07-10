@@ -342,7 +342,7 @@ function run_lint(
     hint_as_strings = map(l -> l[2], hints)
     hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
     function extract_msg_from_hint(m)
-        r = match(r"(?<msg>.+)\. \H+", m)
+        r = match(r"(?<msg>.+)[\.\?] \H+", m)
         return r[:msg] * "."
     end
 
