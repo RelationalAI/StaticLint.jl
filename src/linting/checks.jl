@@ -49,8 +49,8 @@ include("extended_checks.jl")
 const LintCodeDescriptions = Dict{LintCodes,String}(
     IncorrectCallArgs => "Possible method call error.",
     IncorrectIterSpec => "A loop iterator has been used that will likely error.",
-    NothingEquality => "Compare against `nothing` using `isnothing` or `===`",
-    NothingNotEq => "Compare against `nothing` using `!isnothing` or `!==`",
+    NothingEquality => "Compare against `nothing` using `isnothing` or `===`.",
+    NothingNotEq => "Compare against `nothing` using `!isnothing` or `!==`.",
     ConstIfCondition => "A boolean literal has been used as the conditional of an if statement - it will either always or never run.",
     EqInIfConditional => "Unbracketed assignment in if conditional statements is not allowed, did you mean to use ==?",
     PointlessOR => "The first argument of a `||` call is a boolean literal.",
