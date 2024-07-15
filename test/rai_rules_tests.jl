@@ -13,7 +13,10 @@ function lint_test(source::String, expected_substring::String; verbose=true, dir
     run_lint_on_text(source; io, directory)
     output = String(take!(io))
     result = contains(output, expected_substring)
-    verbose && !result && @warn "Not matching " output expected_substring
+    if verbose && !result
+        printstyled("EXPECTED:\n$(expected_substring)\n\n", color=:green)
+        printstyled("OUTPUT:\n$(output)\n\n", color=:red)
+    end
     return result
 end
 
@@ -503,8 +506,6 @@ end
                 directory = "src/Compiler")
     end
 
-
-
     @testset "in, equal, haskey, uv_" begin
         source = """
             function f()
@@ -513,19 +514,25 @@ end
                 z = equal(10, "hello")
                 w = haskey(Dict(1=>1000), 1)
                 a = uv_foo(10, 20)
+                b = ∈(10, [10])
+                c = 10 ∈ [10]
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
-            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
             "Line 4, column 9: It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`.")
         @test lint_test(source,
             "Line 5, column 9: It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`.")
         @test lint_test(source,
             "Line 6, column 9: `uv_` functions should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+        @test lint_test(source,
+            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin

@@ -426,9 +426,12 @@ function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
 end
 
 function check(t::In_Extension, x::EXPR)
-    msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in`."
+    msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`."
     generic_check(t, x, "in(hole_variable,hole_variable)", msg)
     generic_check(t, x, "hole_variable in hole_variable", msg)
+
+    generic_check(t, x, "∈(hole_variable,hole_variable)", msg)
+    generic_check(t, x, "hole_variable ∈ hole_variable", msg)
 end
 
 function check(t::HasKey_Extension, x::EXPR)
