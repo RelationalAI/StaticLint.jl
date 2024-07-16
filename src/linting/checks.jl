@@ -361,7 +361,9 @@ function check_call(x, env::ExternalEnv)
 
                 func_ref.name.name in [:copy] && return
             end
-            function_name = fetch_value(func_ref.name, :IDENTIFIER)
+            function_name = func_ref.name isa SymbolServer.FakeTypeName ?
+                                fetch_value(func_ref.name.name, :IDENTIFIER) :
+                                fetch_value(func_ref.name, :IDENTIFIER)
             function_name in ["delete!", "copy", "copy!", "write", "hash", "iterate"] && return
             seterror!(x, "Possible method call error: $(function_name).")
         end

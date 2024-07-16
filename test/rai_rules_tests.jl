@@ -675,6 +675,16 @@ end
             hole_variable
         end
         """)
+
+    # LINT_STRING
+    @test t("\"LINT_STRING\"", "\"this is a string\"")
+    @test !t("\"LINT_STRING\"", "1 + 2")
+    @test t("\"this is a string\"", "\"LINT_STRING\"")
+    @test !t("1 + 2", "\"LINT_STRING\"")
+    @test t("\"1 + 2\"", "\"LINT_STRING\"")
+
+    # @test t(raw"\"($x)\"", "\"LINT_STRING\"")
+
 end
 
 @testset "unsafe functions" begin
@@ -1578,4 +1588,21 @@ end
     ----------
     """
     @test !isnothing(match(expected, result))
+end
+
+@testset "Checking string interpolation" begin
+    source_with_error = raw"""
+    function f(conf)
+        @info "($conf.container.baseurl)"
+    end
+    """
+
+    source_without_error = raw"""
+    function f(conf)
+        @info "$(conf.container.baseurl)"
+    end
+    """
+
+    @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test count_lint_errors(source_without_error) == 0
 end

@@ -26,6 +26,10 @@ function is_named_hole_variable(x::CSTParser.EXPR)
             length(x.val) > length("hole_variable")
 end
 
+function is_hole_string(x::CSTParser.EXPR)
+    return x.head == :STRING && startswith(x.val, "LINT_STRING")
+end
+
 function is_hole_variable(x::CSTParser.EXPR)
     return x.head == :IDENTIFIER && startswith(x.val, "hole_variable")
 end
@@ -75,6 +79,9 @@ function raw_comp(
 
     # If one of element to be compared is a hole, then we have a match!
     (is_hole_variable(x) || is_hole_variable(y)) && return true
+    (is_hole_string(x) && y.head == :STRING) && return true
+    (is_hole_string(y) && x.head == :STRING) && return true
+
 
     result = raw_comp(x.head, y.head, named_variable_holes) && comp_value(x.val, y.val)
     !result && return false
@@ -181,6 +188,7 @@ struct Equal_Extension <: ViolationExtendedRule end
 struct Uv_Extension <: ViolationExtendedRule end
 struct Splatting_Extension <: RecommendationExtendedRule end
 struct UnreachableBranch_Extension <: ViolationExtendedRule end
+struct StringInterpolation_Extension <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -199,6 +207,7 @@ const error_msgs = Dict{String, String}()
 function reset_recommentation_dict!(d::Dict{String, Bool})
     # Violations
     d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
+    d[raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."] = false
 end
 
 function initialize_recommentation_dict()
@@ -487,4 +496,41 @@ function check(t::UnreachableBranch_Extension, x::EXPR)
             hole_variable \
         end",
         "Unreachable branch.")
+end
+
+
+# Argument is now a CSTParser string
+# function check_string(x::EXPR)
+#     @assert x.head == :string
+
+#     msg_error = "Suspicious string interpolation."
+#     # We iterate over the arguments of the CST String to check for STRING: (
+#     # if we find one, this means the string was incorrectly interpolated
+#     length(x.args) == 3 &&
+#     x.args[1].head == :STRING && x.args[1].val == "(" &&
+#     x.args[2].head == :IDENTIFIER &&
+#     x.args[3].head == :STRING && !isnothing(match(r"^\.\H+", x.args[3].val)) &&
+#     seterror!(x, msg_error)
+
+# end
+
+
+function check(t::StringInterpolation_Extension, x::EXPR)
+    # We are interested only in string with interpolation, which begins with x.head==:string
+    x.head == :string || return
+
+    msg_error = raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."
+    check_for_recommendation(typeof(t), msg_error)
+    # We iterate over the arguments of the CST String to check for STRING: (
+    # if we find one, this means the string was incorrectly interpolated
+    length(x.args) == 3 &&
+    x.args[1].head == :STRING && x.args[1].val == "(" &&
+    x.args[2].head == :IDENTIFIER &&
+    x.args[3].head == :STRING && !isnothing(match(r"^\.\H+", x.args[3].val)) &&
+    seterror!(x, msg_error)
+
+    # does_match(x, "\"LINT_STRING\"") || return
+    # msg_error = "Suspicious string interpolation."
+    # check_for_recommendation(typeof(t), msg_error)
+    # contains(x.val, raw"($") && seterror!(x, msg_error)
 end
