@@ -343,13 +343,17 @@ function run_lint(
     hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
     function extract_msg_from_hint(m)
         r = match(r"(?<msg>.+)[\.\?] \H+", m)
+
+        # We are now reaching a bug HERE
+        if isnothing(r)
+            @error "BUG FOUND IN StaticLint.jl, message from hint $m cannot be extracted"
+            return "ERROR"
+        end
+
         return r[:msg] * "."
     end
 
-    # msgs_from_hints = map(extract_msg_from_hint, hint_as_strings)
-
     @assert all(h -> typeof(h) == String, hint_as_strings)
-
 
     violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
     recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
@@ -444,7 +448,8 @@ function print_datadog_report(
     json_output::IO,
     report_as_string::String,
     files_count::Int64,
-    errors_count::Int64
+    violation_count::Int64,
+    recommandation_count::Int64,
 )
     event = Dict(
         :source => "StaticLint",
@@ -454,7 +459,9 @@ function print_datadog_report(
         :data => Dict(
                     :report_as_string=>report_as_string,
                     :files_count => files_count,
-                    :errors_count => errors_count)
+                    :violation_count => violation_count,
+                    :recommandation_count => recommandation_count,
+                    )
     )
     println(json_output, JSON3.write(event))
 end
@@ -487,6 +494,9 @@ function generate_report(
     local julia_filenames = filter(n->endswith(n, ".jl"), filenames)
     local files_count = length(julia_filenames)
 
+    local a = 0     # violations
+    local b = 0     # recommandations
+
     open(output_filename, "w") do output_io
         println(output_io, "## Static code analyzer report")
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
@@ -494,8 +504,6 @@ function generate_report(
             Report creation time (UTC): ($(now()))")
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
-        a = 0
-        b = 0
 
         io_violations = IOBuffer()
         io_recommendations = IOBuffer()
@@ -544,5 +552,5 @@ function generate_report(
     end
 
     report_as_string = open(output_filename) do io read(io, String) end
-    print_datadog_report(json_output, report_as_string, files_count, errors_count)
+    print_datadog_report(json_output, report_as_string, files_count, a, b)
 end
