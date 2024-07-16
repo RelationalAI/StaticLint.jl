@@ -979,7 +979,9 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 3
+
+                    @test json_report[:data][:violation_count] == 2
+                    @test json_report[:data][:recommandation_count] == 1
 
                     local result
                     open(output_file) do oo
@@ -1032,7 +1034,9 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 4
+
+                    @test json_report[:data][:recommandation_count] == 2
+                    @test json_report[:data][:violation_count] == 2
 
                     local result
                     open(output_file) do oo
@@ -1074,7 +1078,9 @@ end
         json_report = JSON3.read(String(take!(json_io)))
         @test json_report[:source] == "StaticLint"
         @test json_report[:data][:files_count] == 0
-        @test json_report[:data][:errors_count] == 0
+
+        @test json_report[:data][:recommandation_count] == 0
+        @test json_report[:data][:violation_count] == 0
 
 
         expected = r"""
@@ -1104,7 +1110,8 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 0
-                @test json_report[:data][:errors_count] == 0
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 0
 
                 local result
                 open(output_file) do oo
@@ -1144,7 +1151,8 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 0
+                    @test json_report[:data][:recommandation_count] == 0
+                    @test json_report[:data][:violation_count] == 0
 
                     local result
                     open(output_file) do oo
@@ -1179,7 +1187,9 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
-                @test json_report[:data][:errors_count] == 0
+
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 0
 
                 local result
                 open(output_file) do oo
@@ -1219,7 +1229,9 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
-                @test json_report[:data][:errors_count] == 1
+
+                @test json_report[:data][:violation_count] == 1
+                @test json_report[:data][:recommandation_count] == 0
 
                 local result
                 open(output_file) do oo
