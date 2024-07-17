@@ -1070,6 +1070,67 @@ end
         @test result_matching
     end
 
+    @testset "Report generation of two files with errors 02 - JSON report" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            file2 = joinpath(dir, "bar.jl")
+            open(file1, "w") do io1
+                open(file2, "w") do io2
+                    write(io1, "function g()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+                    write(io2, "function f()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    output_file = tempname()
+                    json_filename = tempname()
+                    @test !isfile(json_filename)
+                    # json_io = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_filename=json_filename)
+
+                    @test isfile(json_filename)
+                    json_content = open(io->read(io, String), json_filename)
+                    json_report = JSON3.read(json_content)
+
+                    @test json_report[:source] == "StaticLint"
+                    @test json_report[:data][:files_count] == 2
+
+                    @test json_report[:data][:recommandation_count] == 2
+                    @test json_report[:data][:violation_count] == 2
+
+                    local result
+                    open(output_file) do oo
+                        result = read(oo, String)
+                    end
+
+                    # First violations across files, then recommendations across files
+                    expected = r"""
+                        ## Static code analyzer report
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        Report creation time \(UTC\): \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+
+                        <details>
+                        <summary>For PR Reviewer \(2\)</summary>
+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+
+                        </details>
+
+                        🚨\*\*In total, 2 rule violations and 2 PR reviewer recommendations are found over 2 Julia files\*\*🚨
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                    # DEBUG:
+                    !result_matching && @info result
+                end
+            end
+        end
+        @test result_matching
+    end
+
     @testset "No modified julia file" begin
         output_file = tempname()
         json_io = IOBuffer()

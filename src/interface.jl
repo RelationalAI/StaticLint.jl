@@ -481,6 +481,7 @@ function generate_report(
     filenames::Vector{String},
     output_filename::String;
     json_output::IO=stdout,
+    json_filename::Union{Nothing,String}=nothing,  # Override `json_output` when not nothing
     github_repository::String="",
     branch_name::String="",
     file_prefix_to_remove::String=""
@@ -488,6 +489,14 @@ function generate_report(
     if isfile(output_filename)
         @error "File $output_filename exist already."
         return
+    end
+
+    if !isnothing(json_filename)
+        if isfile(json_filename)
+            @error "File $output_filename exist already, cannot create json file."
+            return
+        end
+        json_output = open(json_filename, "w")
     end
 
     local errors_count = 0
@@ -553,4 +562,8 @@ function generate_report(
 
     report_as_string = open(output_filename) do io read(io, String) end
     print_datadog_report(json_output, report_as_string, files_count, a, b)
+
+    if !isnothing(json_filename)
+        close(json_output)
+    end
 end
