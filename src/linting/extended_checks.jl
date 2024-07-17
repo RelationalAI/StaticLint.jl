@@ -523,14 +523,11 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     check_for_recommendation(typeof(t), msg_error)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
-    length(x.args) == 3 &&
-    x.args[1].head == :STRING && x.args[1].val == "(" &&
-    x.args[2].head == :IDENTIFIER &&
-    x.args[3].head == :STRING && !isnothing(match(r"^\.\H+", x.args[3].val)) &&
-    seterror!(x, msg_error)
 
-    # does_match(x, "\"LINT_STRING\"") || return
-    # msg_error = "Suspicious string interpolation."
-    # check_for_recommendation(typeof(t), msg_error)
-    # contains(x.val, raw"($") && seterror!(x, msg_error)
+    for index in 1:(length(x.args)-1)
+        x.args[index].head == :IDENTIFIER &&
+        x.args[index+1].head == :STRING &&
+        !isnothing(match(r"^\.\H+", x.args[index+1].val)) &&
+        seterror!(x, msg_error)
+    end
 end

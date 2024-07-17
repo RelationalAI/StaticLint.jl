@@ -1609,12 +1609,41 @@ end
     end
     """
 
+    source_with_error2 = raw"""
+    function f(conf)
+        @info "$conf.container.baseurl"
+    end
+    """
+
+    source_with_error3 = raw"""
+    function f(conf)
+        @info "this string contains an error $conf.container.baseurl indeed!"
+    end
+    """
+
     source_without_error = raw"""
     function f(conf)
         @info "$(conf.container.baseurl)"
     end
     """
 
+    source_without_error2 = raw"""
+    function f(conf)
+        @info "this string contains an error $(conf.container.baseurl) indeed!"
+    end
+    """
+
+    source_without_error3 = raw"""
+    function f(conf)
+        @info "this string contains an error $conf .container.baseurl indeed!"
+    end
+    """
+
     @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(source_with_error2, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(source_with_error3, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+
     @test count_lint_errors(source_without_error) == 0
+    @test count_lint_errors(source_without_error2) == 0
+    @test count_lint_errors(source_without_error3) == 0
 end
