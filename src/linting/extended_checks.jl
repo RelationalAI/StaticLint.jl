@@ -527,7 +527,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     for index in 1:(length(x.args)-1)
         x.args[index].head == :IDENTIFIER &&
         x.args[index+1].head == :STRING &&
-        !isnothing(match(r"^\.\H+", x.args[index+1].val)) &&
+        !isnothing(match(r"^\.[a-z,A-Z]+", x.args[index+1].val)) &&
         seterror!(x, msg_error)
     end
 end
