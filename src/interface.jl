@@ -509,7 +509,8 @@ function generate_report(
     open(output_filename, "w") do output_io
         println(output_io, "## Static code analyzer report")
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
-            (https://github.com/RelationalAI/StaticLint.jl)**\n\
+            (https://github.com/RelationalAI/StaticLint.jl). \
+            [Want to contribute?](https://github.com/RelationalAI/StaticLint.jl/blob/main/README.md#contributing-to-staticlintjl)**\n\
             Report creation time (UTC): ($(now()))")
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
