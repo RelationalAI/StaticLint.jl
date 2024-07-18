@@ -991,7 +991,7 @@ end
                     # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
@@ -1046,7 +1046,7 @@ end
                     # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
@@ -1107,7 +1107,7 @@ end
                     # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
@@ -1146,7 +1146,7 @@ end
 
         expected = r"""
             ## Static code analyzer report
-            \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+            \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
             Report creation time \(UTC\): \H+
             No Julia file is modified or added in this PR.
             """
@@ -1182,7 +1182,7 @@ end
 
                 expected = r"""
                     ## Static code analyzer report
-                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                     Report creation time \(UTC\): \H+
                     No Julia file is modified or added in this PR.
                     """
@@ -1222,7 +1222,7 @@ end
 
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                         🎉No potential threats are found over 2 Julia files.👍
                         """
@@ -1259,7 +1259,7 @@ end
 
                 expected = r"""
                     ## Static code analyzer report
-                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                     Report creation time \(UTC\): \H+
                     🎉No potential threats are found over 1 Julia file.👍
                     """
