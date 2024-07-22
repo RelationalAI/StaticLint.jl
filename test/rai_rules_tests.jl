@@ -1,6 +1,8 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
     convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
-    fetch_value, rule_is_recommendation, rule_is_violation
+    fetch_value, rule_is_recommendation, rule_is_violation, has_values
+
+using StaticLint: LintResult
 import CSTParser
 using Test
 using JSON3
@@ -903,9 +905,11 @@ end
         open(joinpath(dir, "foo.jl"), "w") do io
             write(io, "function f()\n  @async 1 + 1\nend\n")
             flush(io)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
+
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
         end
     end
 end
@@ -1298,7 +1302,6 @@ end
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-
                 expected = r"""
                      - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
                     """
@@ -1307,13 +1310,53 @@ end
         end
         @test result_matching
     end
+
+    @testset "Report generation of all the folder" begin
+        # This is a slow test
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n  @async 1 + 1\nend\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report(
+                    [file1],
+                    output_file;
+                    json_output=json_io,
+                    github_repository="RelationalAI/raicode",
+                    branch_name="axb-foo-bar",
+                    file_prefix_to_remove="var/",
+                    analyze_all_file_found_locally=true
+                )
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+
+                # There are more than 10 files in StaticLint.jl
+                # and more than 1 violations and recommendations.
+                @test json_report[:data][:files_count] > 10
+                @test json_report[:data][:violation_count] > 1
+                @test json_report[:data][:recommandation_count] > 0
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+                last_line = filter(!isempty, split(result, "\n"))[end]
+                @test last_line != "No Julia file is modified or added in this PR."
+            end
+        end
+    end
 end
 
 @testset "Running on a directory" begin
     @testset "Non empty directory" begin
-        local r = 0
-        a = 0
-        b = 0
+        local r
+        r = LintResult()
+
         formatters = [StaticLint.PlainFormat(), StaticLint.MarkdownFormat()]
         for formatter in formatters
             mktempdir() do dir
@@ -1321,18 +1364,16 @@ end
                     write(io, "function f()\n  @async 1 + 1\nend\n")
                     flush(io)
                     str = IOBuffer()
-                    ta, tb = StaticLint.run_lint(dir; io=str, formatter)
-                    a += ta
-                    b += tb
+                    r += StaticLint.run_lint(dir; io=str, formatter)
                 end
             end
         end
-        @test (a + b) == 2
+        @test (r.violations_count + r.recommendations_count) == 2
     end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-            @test StaticLint.run_lint(dir) == (0, 0)
+            @test StaticLint.run_lint(dir) == LintResult()
         end
     end
 end
@@ -1738,4 +1779,23 @@ end
     @test lint_test(false_positive2, raw"Line 2, column 77: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
     @test lint_test(false_positive3, raw"Line 2, column 12: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
 
+end
+
+@testset "Arithmetic LintResult" begin
+    l1 = LintResult()
+    l2 = LintResult(1, 2, 3)
+    l3 = LintResult(10, 20, 30)
+    l4 = LintResult(10, 20, 30, ["foo.jl"])
+    l5 = LintResult(10, 20, 30, ["foo2.jl"])
+
+    @test l1 == l1
+    @test l1 == LintResult()
+    @test (l1 + l2) == l2
+    @test (l3 + l2) == LintResult(11, 22, 33)
+    @test l4 != l5
+    @test l3 != l4
+    @test l3 != l5
+
+    append!(l4, l5)
+    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"])
 end
