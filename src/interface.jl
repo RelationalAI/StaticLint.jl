@@ -633,6 +633,10 @@ function generate_report(
 
         has_julia_file = !isempty(lint_result.linted_files)
 
+        if lint_result.violations_count + lint_result.recommendations_count > lint_result.printout_count
+            println(output_io, "⚠️Only a subset of the violations and recommandations are here reported⚠️")
+        end
+
         ending = length(julia_filenames) > 1 ? "s" : ""
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
