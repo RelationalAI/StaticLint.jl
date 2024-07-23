@@ -6,20 +6,23 @@ mutable struct LintResult
     violations_count::Int64
     recommendations_count::Int64
     linted_files::Vector{String}
+    printout_count::Int64
 
-    LintResult() = new(0, 0, 0, String[])
-    LintResult(a, b, c) = new(a, b, c, String[])
-    LintResult(a, b, c, d) = new(a, b, c, d)
+    LintResult(a, b, c, d, e) = new(a, b, c, d, e)
 end
 
-function Base.:+(l1::LintResult, l2::LintResult)
-    return LintResult(
-        l1.files_count + l2.files_count,
-        l1.violations_count + l2.violations_count,
-        l1.recommendations_count + l2.recommendations_count,
-        vcat(l1.linted_files, l2.linted_files)
-    )
-end
+LintResult() = LintResult(0, 0, 0, String[], 0)
+LintResult(a, b, c) = LintResult(a, b, c, String[])
+LintResult(a, b, c, d) = LintResult(a, b, c, d, 0)
+
+# function Base.:+(l1::LintResult, l2::LintResult)
+#     return LintResult(
+#         l1.files_count + l2.files_count,
+#         l1.violations_count + l2.violations_count,
+#         l1.recommendations_count + l2.recommendations_count,
+#         vcat(l1.linted_files, l2.linted_files)
+#     )
+# end
 
 function Base.append!(l1::LintResult, l2::LintResult)
     # if !isempty(l2.linted_files)
@@ -33,13 +36,15 @@ function Base.append!(l1::LintResult, l2::LintResult)
     l1.violations_count += l2.violations_count
     l1.recommendations_count += l2.recommendations_count
     Base.append!(l1.linted_files, l2.linted_files)
+    l1.printout_count += l2.printout_count
 end
 
 function Base.:(==)(l1::LintResult, l2::LintResult)
     return l1.files_count == l2.files_count &&
            l1.violations_count == l2.violations_count &&
            l1.recommendations_count == l2.recommendations_count &&
-           l1.linted_files == l2.linted_files
+           l1.linted_files == l2.linted_files &&
+           l1.printout_count == l2.printout_count
 end
 
 function is_already_linted(l::LintResult, filename)
@@ -210,7 +215,7 @@ struct MarkdownFormat <: AbstractFormatter
 end
 
 """
-    filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::Vector=[])
+    filter_and_print_hint(...)
 
 Essential function to filter and print a `hint_as_string`, being a String.
 Return true if the hint was printed, else it was filtered.
@@ -218,12 +223,14 @@ It takes the following arguments:
     - `hint_as_string` to be filtered or printed
     - `io` stream where the hint is printed, if not filtered
     - `filters` the set of filters to be used
+    - `lint_result` is the current lint result. We used it to limit the produced report.
 """
 function filter_and_print_hint(
     hint_as_string::String,
+    lint_result::LintResult,
     io::IO=stdout,
     filters::Vector{LintCodes}=LintCodes[],
-    formatter::AbstractFormatter=PlainFormat()
+    formatter::AbstractFormatter=PlainFormat(),
 )
     # Filter along the message
     should_be_filtered(hint_as_string, filters) && return false
@@ -241,13 +248,19 @@ function filter_and_print_hint(
 
     # Remove the offset from the result. No need for this.
     cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
+
+    should_print_hint(result) = result.printout_count <= 60
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
         has_no_annotation = isnothing(annotation_line)
         if has_no_annotation
             # No annotation, so we merely print the reported error.
-            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+            if should_print_hint(lint_result)
+                # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+                lint_result.printout_count += 1
+            end
             return true
         else
             # there is an annotation, we need to distinguish if it is specific or not
@@ -268,7 +281,11 @@ function filter_and_print_hint(
             if is_specific_disable_annotation && startswith(cleaned_hint, msg)
                 return false
             end
-            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+
+            if should_print_hint(lint_result)
+                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+                lint_result.printout_count += 1
+            end
             return true
         end
     catch
@@ -411,38 +428,21 @@ function run_lint(
 
     @assert all(h -> typeof(h) == String, hint_as_strings)
 
+    # NO MORE THAN 30 VIOLATIONS AND 30 PR RECOMMENDATIONS
     violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
     recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
 
-    # filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-
     io_tmp = isnothing(io_violations) ? io : io_violations
-    # println(io_tmp, "Violations:")
     filtered_and_printed_hints_violations =
-        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), violation_hints)
-    # if !isempty(filtered_and_printed_hints_violations)
-    #     print(io, String(take!(io_tmp)))
-    # end
+        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), violation_hints)
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-    # println(io_tmp, "\nRecommendations:")
 
     filtered_and_printed_hints_recommandations =
-        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), recommendation_hints)
-    # println(io_tmp)
-    # if !isempty(filtered_and_printed_hints_recommandations)
-    #     print(io, String(take!(io_tmp)))
-    # end
+        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), recommendation_hints)
 
     count_violations = length(filtered_and_printed_hints_violations)
     count_recommendations = length(filtered_and_printed_hints_recommandations)
-    # print_summary(
-    #     formatter,
-    #     io,
-    #     count_violations,
-    #     count_recommendations
-    # )
-    # print_footer(formatter, io)
 
     # We run Lint on a single file.
     append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
