@@ -534,8 +534,8 @@ function check(t::StringInterpolation_Extension, x::EXPR)
 end
 
 function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
-    # haskey(markers, :filename) || return
-    # contains(markers[:filename], "src/Compiler/Front") || return
+    haskey(markers, :filename) || return
+    contains(markers[:filename], "src/Compiler/Front") || return
 
     generic_check(t, x, "split_path(hole_variable)", "Usage of `RelPath` API method `split_path` is not allowed in this context.")
     generic_check(t, x, "drop_first(hole_variable)", "Usage of `RelPath` API method `drop_first` is not allowed in this context.")
