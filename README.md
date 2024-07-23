@@ -2,6 +2,10 @@
 
 StaticLint is a static code analyzer for Julia. It searches for patterns in Julia source code, such patterns aiming to indicate issues and deserve to be reported to the end-user.
 
+## Installing and Running StaticLint 
+
+Installing and running StaticLint.jl is easy. You just need to clone this repository _outside_ the Julia project you would like to analyze. Although you add it as a dependency, there is no good reason to mess up with your local `Project.toml` and `Manifest.toml`. 
+
 ## Basic usage
 
 There are several ways to use StaticLint.jl. Here are a few usage examples:
