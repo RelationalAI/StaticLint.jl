@@ -1350,6 +1350,40 @@ end
             end
         end
     end
+
+    @testset "Limiting report" begin
+        # this tests create a Julia file with 100 violations, the report should mention
+        # 100 violations, however only (an arbitrary) 30 are reported.
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n")
+                for _ in 1:100
+                    write(io1, "    @async 1 + 1\n")
+                end
+                write(io1, "end\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report([file1], output_file; json_output=json_io)
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] == 1
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 100
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+                lines_count = length(split(result, "\n"))
+                @test lines_count < 70
+            end
+        end
+    end
 end
 
 @testset "Running on a directory" begin
@@ -1364,7 +1398,7 @@ end
                     write(io, "function f()\n  @async 1 + 1\nend\n")
                     flush(io)
                     str = IOBuffer()
-                    r += StaticLint.run_lint(dir; io=str, formatter)
+                    append!(r, StaticLint.run_lint(dir; io=str, formatter))
                 end
             end
         end
@@ -1785,17 +1819,17 @@ end
     l1 = LintResult()
     l2 = LintResult(1, 2, 3)
     l3 = LintResult(10, 20, 30)
-    l4 = LintResult(10, 20, 30, ["foo.jl"])
-    l5 = LintResult(10, 20, 30, ["foo2.jl"])
+    l4 = LintResult(10, 20, 30, ["foo.jl"], 100)
+    l5 = LintResult(10, 20, 30, ["foo2.jl"], 250)
 
     @test l1 == l1
     @test l1 == LintResult()
-    @test (l1 + l2) == l2
-    @test (l3 + l2) == LintResult(11, 22, 33)
+    # @test (l1 + l2) == l2
+    # @test (l3 + l2) == LintResult(11, 22, 33)
     @test l4 != l5
     @test l3 != l4
     @test l3 != l5
 
     append!(l4, l5)
-    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"])
+    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"], 350)
 end
