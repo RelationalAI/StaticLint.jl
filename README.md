@@ -75,6 +75,27 @@ function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
 end
 ```
 
+The different markers currently supported are:
+
+| Marker  | Value  |
+|:------------- |:---------------|
+| `:const`        | Const variable name  |
+| `:function`         | Function name          |
+| `:macrocall`         | Macro name          |
+| `:filename`         | Path and name of the analyzed file          |
+
+If you wish to run a particular rule only in a directory, you could do:
+
+```
+function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+    isnothing(match(r".*/myfolder/.*", markers[:filename])) || return
+    generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
+end
+```
+
+This will run the `"Threads.nthreads()"` described earlier in all folders expect in `myfolder`.
+
+
 ## Locally disabling StaticLint
 
 StaticLint can be locally disabled. For now, only for a given line. E.g.,
