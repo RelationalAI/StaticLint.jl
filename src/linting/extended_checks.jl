@@ -537,8 +537,9 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
     haskey(markers, :filename) || return
     contains(markers[:filename], "src/Compiler/Front") || return
 
-    generic_check(t, x, "RelPath(hole_variable)", "Usage of `RelPath` is not allowed in this context.")
-    generic_check(t, x, "RelPath(hole_variable, hole_variable)", "Usage of `RelPath` is not allowed in this context.")
+    generic_check(t, x, "hole_variable::RelPath", "Usage of type `RelPath` is not allowed in this context.")
+    generic_check(t, x, "RelPath(hole_variable)", "Usage of type `RelPath` is not allowed in this context.")
+    generic_check(t, x, "RelPath(hole_variable, hole_variable)", "Usage of type `RelPath` is not allowed in this context.")
     generic_check(t, x, "split_path(hole_variable)", "Usage of `RelPath` API method `split_path` is not allowed in this context.")
     generic_check(t, x, "drop_first(hole_variable)", "Usage of `RelPath` API method `drop_first` is not allowed in this context.")
     generic_check(t, x, "relpath_from_signature(hole_variable)", "Usage of method `relpath_from_signature` is not allowed in this context.")

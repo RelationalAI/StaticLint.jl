@@ -1833,3 +1833,33 @@ end
     append!(l4, l5)
     @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"], 350)
 end
+
+@testset "RelPath Front-End" begin
+    source = """
+        function rel_sig_from_relpath(path)
+            (name, types) = split_path(path)
+            return RelationSignature(name, types.elements)
+        end
+
+        function interpret(x, y, path)
+            rest = drop_first(path)
+            return RelPath(rest.elements[2:end])
+        end
+
+        function reverse(decl::EdbDecl)
+            return relpath_from_signature(decl.signature)
+        end
+
+        function use_path(x, y::RelPath, z)
+            return y.elements
+        end
+    """
+
+    @test count_lint_errors(source; directory="/src/Compiler/Front") == 5
+    @test count_lint_errors(source; directory="") == 0
+
+    @test lint_test(source,
+        "Line 2, column 25: Usage of `RelPath` API method `split_path` is not allowed in this context.";
+        directory="/src/Compiler/Front"
+    )
+end
