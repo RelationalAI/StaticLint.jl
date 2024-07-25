@@ -27,6 +27,19 @@ include(joinpath(@__DIR__, "rai_rules_tests.jl"))
 
 @testset "StaticLint" begin
 
+    @testset "utf8 offsets" begin
+        @test convert_offset_to_line_from_lines(1, ["# aaaa","abcdegh"]) == (1,1,nothing)
+        @test convert_offset_to_line_from_lines(10, ["# aaaa","abcdegh"]) == (2,3,nothing)
+        @test convert_offset_to_line_from_lines(11, ["# ─aaa","abcdegh"]) == (2,2,nothing)
+        @test convert_offset_to_line_from_lines(
+            40, ["# aaaaaaaaaa", "aaaa", "bbbb", "cccc", "dddd", "eeee","ffff"]
+        ) == (7, 2, nothing)
+        @test convert_offset_to_line_from_lines(
+            40, ["# ──────────", "aaaa", "bbbb", "cccc", "dddd", "eeee","ffff"]
+        ) == (3, 2, nothing)
+        @test convert_offset_to_line_from_lines(4, ["──"]) == (1,2,nothing)
+    end
+
     @testset "Basic bindings" begin
 
         @test check_resolved("""
