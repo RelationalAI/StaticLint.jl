@@ -1,19 +1,3 @@
-@testset "offset to line" begin
-    source = """
-        function f()
-            return Threads.nthreads()
-        end
-        """
-    @test_throws BoundsError convert_offset_to_line(-1, source)
-    @test_throws BoundsError convert_offset_to_line(length(source) + 2, source)
-
-    @test convert_offset_to_line(10, source) == (1, 10, nothing)
-    @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
-
-end
-
 @testset "utf8 offsets" begin
     @test convert_offset_to_line_from_lines(1, ["# aaaa","abcdegh"]) == (1,1,nothing)
     @test convert_offset_to_line_from_lines(10, ["# aaaa","abcdegh"]) == (2,3,nothing)

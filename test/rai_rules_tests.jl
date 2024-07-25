@@ -748,6 +748,22 @@ end
     end
 end
 
+@testset "offset to line" begin
+    source = """
+        function f()
+            return Threads.nthreads()
+        end
+        """
+    @test_throws BoundsError convert_offset_to_line(-1, source)
+    @test_throws BoundsError convert_offset_to_line(length(source) + 2, source)
+
+    @test convert_offset_to_line(10, source) == (1, 10, nothing)
+    @test convert_offset_to_line(20, source) == (2, 7, nothing)
+    @test convert_offset_to_line(43, source) == (2, 30, nothing)
+    @test convert_offset_to_line(47, source) == (3, 4, nothing)
+
+end
+
 @testset "Should be filtered" begin
     filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
     hint_as_string1 = "Missing reference. /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
