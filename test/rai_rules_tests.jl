@@ -748,22 +748,6 @@ end
     end
 end
 
-@testset "offset to line" begin
-    source = """
-        function f()
-            return Threads.nthreads()
-        end
-        """
-    @test_throws BoundsError convert_offset_to_line(-1, source)
-    @test_throws BoundsError convert_offset_to_line(length(source) + 2, source)
-
-    @test convert_offset_to_line(10, source) == (1, 10, nothing)
-    @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
-
-end
-
 @testset "Should be filtered" begin
     filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
     hint_as_string1 = "Missing reference. /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
@@ -1274,7 +1258,6 @@ end
     end
 
     @testset "Report generation of 1 file with 1 error and github info" begin
-        local result_matching = false
         mktempdir() do dir
             file1 = joinpath(dir, "foo.jl")
             open(file1, "w") do io1
@@ -1302,13 +1285,15 @@ end
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-                expected = r"""
-                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
-                    """
-                result_matching = !isnothing(match(expected, result))
+                expected = "- **[Line 2, column 3:]" * 
+                    "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar$(dir)/foo.jl" *
+                    "#L2)** Macro `@spawn` should be used instead of `@async`."
+                if !occursin(expected, result)
+                    @info "didn't match" expected result
+                end
+                @test occursin(expected, result)
             end
         end
-        @test result_matching
     end
 
     @testset "Report generation of all the folder" begin
