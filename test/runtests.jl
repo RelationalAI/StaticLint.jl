@@ -33,10 +33,11 @@ include(joinpath(@__DIR__, "rai_rules_tests.jl"))
         @test convert_offset_to_line_from_lines(11, ["# ─aaa","abcdegh"]) == (2,2,nothing)
         @test convert_offset_to_line_from_lines(
             40, ["# aaaaaaaaaa", "aaaa", "bbbb", "cccc", "dddd", "eeee","ffff"]
-        ) == (7, 1, nothing)
+        ) == (7, 2, nothing)
         @test convert_offset_to_line_from_lines(
             40, ["# ──────────", "aaaa", "bbbb", "cccc", "dddd", "eeee","ffff"]
-        ) == (3, 1, nothing)
+        ) == (3, 2, nothing)
+        @test convert_offset_to_line_from_lines(4, ["──"]) == (1,2,nothing)
     end
 
     @testset "Basic bindings" begin

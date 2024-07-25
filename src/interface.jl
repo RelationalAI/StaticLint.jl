@@ -159,8 +159,8 @@ end
 # annotation could be either nothing, "lint-disable-line", or
 # "lint-disable-line ERROR_MSG_TO_IGNORE"
 #
-# Note: `offset` is measured in codepoints.  The returned `index_column` is an index (which
-# is a codepoint offset).
+# Note: `offset` is measured in codepoints.  The returned `index_column` is a character
+# index (not a string index).
 function convert_offset_to_line_from_lines(offset::Int, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
@@ -187,7 +187,7 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
             else
                 annotation = nothing
             end
-            result = index_line, (offset - current_codepoint + 1), annotation
+            result = index_line, length(line, 1, (offset - current_codepoint + 1)), annotation
             annotation = nothing
             return result
         end
