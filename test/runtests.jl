@@ -23,5 +23,5 @@ function check_resolved(s)
     [(refof(i) !== nothing) for i in IDs]
 end
 
-include(joinpath(@__DIR__, "rai_rules_tests.jl"))
 include(joinpath(@__DIR__, "static_lint_tests.jl"))
+include(joinpath(@__DIR__, "rai_rules_tests.jl"))

@@ -154,44 +154,67 @@ function convert_offset_to_line(offset::Int, source::String)
     return convert_offset_to_line_from_lines(offset, split(source, "\n"))
 end
 
+# Return the lint next-line annotation, if there is one, at the end of `line`.
+# Return
+#   * `nothing`      if there is no `lint-disable-next-line` annotation.
+#   * ""::SubString  if the end of the line is "lint-disable-next-line".
+#   * s::SubString   if the end of the line is "lint-disable_next_line: $s"
+function disable_next_line_annotation(line::AbstractString)
+    if endswith(line, "lint-disable-next-line")
+        return ""
+    end
+    # An annotation must be in a comment and not contain any `#` or `"` characters.
+    m = match(r"# lint-disable-next-line: [^\"#]$", line)
+    return isnothing(m) ? nothing : m.match
+end
 
-# Return a triple: (index_line, index_column, annotation)
-# annotation could be either nothing, "lint-disable-line", or
-# "lint-disable-line ERROR_MSG_TO_IGNORE"
+function disable_this_line_annotation(line::AbstractString)
+    if endswith(line, "lint-disable-line")
+        return ""
+    end
+    # An annotation must be in a comment and not contain any `#` or `"` characters.
+    m = match(r"# lint-disable-line: [^\"#]$", line)
+    return isnothing(m) ? nothing : m.match
+end
+
+# Return a triple: (line::Int, column::Int, annotation::Option(String))
 #
-# Note: `offset` is measured in codepoints.  The returned `index_column` is a character
-# index (not a string index).
+# `annotation` could be either `nothing`, "lint-disable-line", or
+# `"lint-disable-line: $ERROR_MSG_TO_IGNORE"`
+#
+# Note: `offset` is measured in codepoints.  The returned `column` is a character
+# offset, not a codepoint offset.
 function convert_offset_to_line_from_lines(offset::Int, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_codepoint = 1
-    annotation_previous_line = -1
-    annotation = nothing
-    current_annotation = nothing
-    for (index_line,line) in enumerate(all_lines)
-        if endswith(line, "lint-disable-next-line")
-            annotation_previous_line = index_line + 1
-            current_annotation = "lint-disable-line"
-        elseif contains(line, "lint-disable-next-line:")
-            annotation_previous_line = index_line + 1
-            msg_error = match(r".*:\s*(?<msg>.*)", line)[:msg]
-            current_annotation = "lint-disable-line $msg_error"
-        elseif endswith(line, "lint-disable-line")
-            annotation_previous_line = index_line
-            current_annotation = "lint-disable-line"
-        end
-
-        if offset in current_codepoint:(current_codepoint + sizeof(line))
-            if endswith(line, "lint-disable-line") || (index_line == annotation_previous_line)
-                annotation = current_annotation
+    # In these annotations, "" means "lint-disable-line", a nonempty string `s` means
+    # "lint_disable_line: $s", and nothing means there's no applicable annotation.
+    prev_annotation::Union{Nothing,SubString} = nothing
+    this_annotation::Union{Nothing,SubString} = nothing
+    for (line_number, line) in enumerate(all_lines)
+        this_annotation = disable_this_line_annotation(line)
+        # Add one to the range for the newline.
+        if offset in current_codepoint:(current_codepoint + sizeof(line) + 1)
+            offset_in_line = offset - current_codepoint
+            if !isnothing(this_annotation)
+                annotation = this_annotation
+            elseif !isnothing(prev_annotation)
+                annotation = prev_annotation
             else
                 annotation = nothing
             end
-            result = index_line, length(line, 1, (offset - current_codepoint + 1)), annotation
-            annotation = nothing
-            return result
+            if !isnothing(annotation)
+                if annotation == ""
+                    annotation = "lint-disable-line"
+                else
+                    annotation = "lint-disable-line: " * annotation
+                end
+            end
+            return line_number, length(line, 1, offset_in_line + 1), annotation
         end
-        current_codepoint += sizeof(line) + 1 #1 is for the newline.
+        prev_annotation = disable_next_line_annotation(line)
+        current_codepoint += sizeof(line) + 1 # 1 is for the newline
     end
     throw(BoundsError("source", offset))
 end

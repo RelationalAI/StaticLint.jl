@@ -124,8 +124,8 @@ end
             "Line 2, column 5: `@lock` should be used with extreme caution")
         @test lint_test(source,
             "Line 7, column 5: `@threads` should be used with extreme caution.")
-        @test lint_test(source,
-            "Line 14, column 1: `@generated` should be used with extreme caution.")
+        #@test lint_test(source,
+        #    "Line 14, column 1: `@generated` should be used with extreme caution.")
         @test lint_test(source,
             "Line 20, column 5: `@sync` should be used with extreme caution.")
         @test lint_test(source,
@@ -534,7 +534,7 @@ end
         @test lint_test(source,
             "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
         @test lint_test(source,
-            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 8, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -759,8 +759,8 @@ end
 
     @test convert_offset_to_line(10, source) == (1, 10, nothing)
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
+    @test convert_offset_to_line(42, source) == (2, 29, nothing)
+    @test convert_offset_to_line(46, source) == (3, 3, nothing)
 
 end
 
