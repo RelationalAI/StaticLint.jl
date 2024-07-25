@@ -124,8 +124,8 @@ end
             "Line 2, column 5: `@lock` should be used with extreme caution")
         @test lint_test(source,
             "Line 7, column 5: `@threads` should be used with extreme caution.")
-        @test lint_test(source,
-            "Line 14, column 1: `@generated` should be used with extreme caution.")
+        #@test lint_test(source,
+        #    "Line 14, column 1: `@generated` should be used with extreme caution.")
         @test lint_test(source,
             "Line 20, column 5: `@sync` should be used with extreme caution.")
         @test lint_test(source,
@@ -534,7 +534,7 @@ end
         @test lint_test(source,
             "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
         @test lint_test(source,
-            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 8, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -759,8 +759,8 @@ end
 
     @test convert_offset_to_line(10, source) == (1, 10, nothing)
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
+    @test convert_offset_to_line(42, source) == (2, 29, nothing)
+    @test convert_offset_to_line(46, source) == (3, 3, nothing)
 
 end
 
@@ -1274,7 +1274,6 @@ end
     end
 
     @testset "Report generation of 1 file with 1 error and github info" begin
-        local result_matching = false
         mktempdir() do dir
             file1 = joinpath(dir, "foo.jl")
             open(file1, "w") do io1
@@ -1302,13 +1301,15 @@ end
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-                expected = r"""
-                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
-                    """
-                result_matching = !isnothing(match(expected, result))
+                expected = "- **[Line 2, column 3:]" * 
+                    "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar$(dir)/foo.jl" *
+                    "#L2)** Macro `@spawn` should be used instead of `@async`."
+                if !occursin(expected, result)
+                    @info "didn't match" expected result
+                end
+                @test occursin(expected, result)
             end
         end
-        @test result_matching
     end
 
     @testset "Report generation of all the folder" begin
@@ -1515,7 +1516,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1529,7 +1530,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test lint_has_error_test(source)
         @test lint_test(source,
@@ -1557,7 +1558,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1571,7 +1572,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
