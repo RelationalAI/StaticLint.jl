@@ -1,6 +1,10 @@
 # StaticLint.jl
 
-StaticLint is a static code analyzer for Julia. It runs some rules on Julia source code.
+StaticLint is a static code analyzer for Julia. It searches for patterns in Julia source code, such patterns aiming to indicate issues and deserve to be reported to the end-user.
+
+## Installing and Running StaticLint 
+
+Installing and running StaticLint.jl is easy. You just need to clone this repository _outside_ the Julia project you would like to analyze. Although you add it as a dependency, there is no good reason to mess up with your local `Project.toml` and `Manifest.toml`. 
 
 ## Basic usage
 
@@ -39,17 +43,24 @@ StaticLint.run_lint("/Users/alexandrebergel/Documents/RAI/raicode13/src/")
 
 The expression above outputs 1928 potential threats.
 
+## Contributing to StaticLint.jl
+
+You may want to contribute to StaticLint.jl for many reasons. Here are a few of them:
+
+ - _A rule needs to be better documented_. It is easy to do so: create a PR to this repository that improves one of the rules defined [HERE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). This `extended_checks.jl` file contains all the RAI-specific rules. 
+ - _A new rule has to be defined_. As our system grows and evolves, new rules may have to be defined. The beginning of the file [extended_checks.jl](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl) and the section below detail this process. You can always ask `@Alexandre Bergel` on Slack for assistance. Create a new PR with the rule. 
+
 ## Lint rules
 
 Several RAI-specific and generic rules are verified on Julia source code.
 A number of Julia keywords are known to be [either incompatible or dangerous when committed into raicode](https://relationalai.atlassian.net/browse/RAI-5839). \
 The Lint rules available to be run on Julia source code may be found in this [FILE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl).
 
-Adding a new rule is easy. Only the file `src/linting/extended_checks.jl` has to be modified. You need to following the steps:
+Adding a new rule is easy. Only the file `src/linting/extended_checks.jl` has to be modified. You need to follow the steps:
 1. Create a subtype of `ExtendedRule`, e.g., `struct Async_Extention <: ExtendedRule end`. Lint rules are dynamically looked up by looking at subtypes of `ExtendedRule`.
 2. Create an overload of `check` to perform the actual check.
 
-Here is an example of `check`:
+Here is an example of a `check`:
 
 ```Julia
 check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
@@ -68,6 +79,27 @@ function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
 end
 ```
 
+The different markers currently supported are:
+
+| Marker  | Value  |
+|:------------- |:---------------|
+| `:const`        | Const variable name  |
+| `:function`         | Function name          |
+| `:macrocall`         | Macro name          |
+| `:filename`         | Path and name of the analyzed file          |
+
+If you wish to run a particular rule only in a directory, you could do:
+
+```
+function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+    isnothing(match(r".*/myfolder/.*", markers[:filename])) || return
+    generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
+end
+```
+
+This will run the `"Threads.nthreads()"` described earlier in all folders expect in `myfolder`.
+
+
 ## Locally disabling StaticLint
 
 StaticLint can be locally disabled. For now, only for a given line. E.g.,
@@ -85,7 +117,7 @@ function f2()
 end
 ```
 
-A specific rule can be locally disabled using `lint-disable-next-line:` taking as argument
+A specific rule can be locally disabled using `lint-disable-next-line:` taking as an argument
 the message that has to be ignored. Consider this example:
 
 ```Julia
@@ -98,7 +130,7 @@ end
 The instruction `@async 1 + 1` raises the error: Macro `@spawn` should be used instead of `@async`.
 Providing this error msg to the comment `lint-disable-next-line:` disabled it.
 
-Note that it is not necessary to have the full message. The beginning of it is enought. As
+Note that it is not necessary to have the full message. The beginning of it is enough. As
 such, the code above is equivalent to:
 
 ```Julia

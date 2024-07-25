@@ -1,6 +1,8 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
     convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
-    fetch_value, rule_is_recommendation, rule_is_violation
+    fetch_value, rule_is_recommendation, rule_is_violation, has_values
+
+using StaticLint: LintResult
 import CSTParser
 using Test
 using JSON3
@@ -13,7 +15,10 @@ function lint_test(source::String, expected_substring::String; verbose=true, dir
     run_lint_on_text(source; io, directory)
     output = String(take!(io))
     result = contains(output, expected_substring)
-    verbose && !result && @warn "Not matching " output expected_substring
+    if verbose && !result
+        printstyled("EXPECTED:\n$(expected_substring)\n\n", color=:green)
+        printstyled("OUTPUT:\n$(output)\n\n", color=:red)
+    end
     return result
 end
 
@@ -503,8 +508,6 @@ end
                 directory = "src/Compiler")
     end
 
-
-
     @testset "in, equal, haskey, uv_" begin
         source = """
             function f()
@@ -513,19 +516,25 @@ end
                 z = equal(10, "hello")
                 w = haskey(Dict(1=>1000), 1)
                 a = uv_foo(10, 20)
+                b = ∈(10, [10])
+                c = 10 ∈ [10]
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
-            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`.")
+            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
             "Line 4, column 9: It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`.")
         @test lint_test(source,
             "Line 5, column 9: It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`.")
         @test lint_test(source,
             "Line 6, column 9: `uv_` functions should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+        @test lint_test(source,
+            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -668,6 +677,16 @@ end
             hole_variable
         end
         """)
+
+    # LINT_STRING
+    @test t("\"LINT_STRING\"", "\"this is a string\"")
+    @test !t("\"LINT_STRING\"", "1 + 2")
+    @test t("\"this is a string\"", "\"LINT_STRING\"")
+    @test !t("1 + 2", "\"LINT_STRING\"")
+    @test t("\"1 + 2\"", "\"LINT_STRING\"")
+
+    # @test t(raw"\"($x)\"", "\"LINT_STRING\"")
+
 end
 
 @testset "unsafe functions" begin
@@ -886,9 +905,11 @@ end
         open(joinpath(dir, "foo.jl"), "w") do io
             write(io, "function f()\n  @async 1 + 1\nend\n")
             flush(io)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
-            @test StaticLint.run_lint(dir; io) == (1, 0)
+
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
+            @test has_values(StaticLint.run_lint(dir; io), 1, 1, 0)
         end
     end
 end
@@ -962,7 +983,9 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 3
+
+                    @test json_report[:data][:violation_count] == 2
+                    @test json_report[:data][:recommandation_count] == 1
 
                     local result
                     open(output_file) do oo
@@ -972,7 +995,7 @@ end
                     # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
@@ -1015,7 +1038,9 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 4
+
+                    @test json_report[:data][:recommandation_count] == 2
+                    @test json_report[:data][:violation_count] == 2
 
                     local result
                     open(output_file) do oo
@@ -1025,7 +1050,68 @@ end
                     # First violations across files, then recommendations across files
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
+                        Report creation time \(UTC\): \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+
+                        <details>
+                        <summary>For PR Reviewer \(2\)</summary>
+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+                         - \*\*Line 4, column 3:\*\* `finalizer\(_,_\)` should not be used\. \H+
+
+                        </details>
+
+                        🚨\*\*In total, 2 rule violations and 2 PR reviewer recommendations are found over 2 Julia files\*\*🚨
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                    # DEBUG:
+                    !result_matching && @info result
+                end
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "Report generation of two files with errors 02 - JSON report" begin
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            file2 = joinpath(dir, "bar.jl")
+            open(file1, "w") do io1
+                open(file2, "w") do io2
+                    write(io1, "function g()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+                    write(io2, "function f()\n  @async 1 + 1\nend\n  finalizer(\"hello\") do x nothing\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    output_file = tempname()
+                    json_filename = tempname()
+                    @test !isfile(json_filename)
+                    # json_io = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_filename=json_filename)
+
+                    @test isfile(json_filename)
+                    json_content = open(io->read(io, String), json_filename)
+                    json_report = JSON3.read(json_content)
+
+                    @test json_report[:source] == "StaticLint"
+                    @test json_report[:data][:files_count] == 2
+
+                    @test json_report[:data][:recommandation_count] == 2
+                    @test json_report[:data][:violation_count] == 2
+
+                    local result
+                    open(output_file) do oo
+                        result = read(oo, String)
+                    end
+
+                    # First violations across files, then recommendations across files
+                    expected = r"""
+                        ## Static code analyzer report
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
                          - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
@@ -1057,12 +1143,14 @@ end
         json_report = JSON3.read(String(take!(json_io)))
         @test json_report[:source] == "StaticLint"
         @test json_report[:data][:files_count] == 0
-        @test json_report[:data][:errors_count] == 0
+
+        @test json_report[:data][:recommandation_count] == 0
+        @test json_report[:data][:violation_count] == 0
 
 
         expected = r"""
             ## Static code analyzer report
-            \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+            \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
             Report creation time \(UTC\): \H+
             No Julia file is modified or added in this PR.
             """
@@ -1087,7 +1175,8 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 0
-                @test json_report[:data][:errors_count] == 0
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 0
 
                 local result
                 open(output_file) do oo
@@ -1097,7 +1186,7 @@ end
 
                 expected = r"""
                     ## Static code analyzer report
-                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                     Report creation time \(UTC\): \H+
                     No Julia file is modified or added in this PR.
                     """
@@ -1127,7 +1216,8 @@ end
                     json_report = JSON3.read(String(take!(json_io)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
-                    @test json_report[:data][:errors_count] == 0
+                    @test json_report[:data][:recommandation_count] == 0
+                    @test json_report[:data][:violation_count] == 0
 
                     local result
                     open(output_file) do oo
@@ -1136,7 +1226,7 @@ end
 
                     expected = r"""
                         ## Static code analyzer report
-                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                        \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
                         🎉No potential threats are found over 2 Julia files.👍
                         """
@@ -1162,7 +1252,9 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
-                @test json_report[:data][:errors_count] == 0
+
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 0
 
                 local result
                 open(output_file) do oo
@@ -1171,7 +1263,7 @@ end
 
                 expected = r"""
                     ## Static code analyzer report
-                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\)\*\*
+                    \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                     Report creation time \(UTC\): \H+
                     🎉No potential threats are found over 1 Julia file.👍
                     """
@@ -1202,13 +1294,14 @@ end
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
-                @test json_report[:data][:errors_count] == 1
+
+                @test json_report[:data][:violation_count] == 1
+                @test json_report[:data][:recommandation_count] == 0
 
                 local result
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-
                 expected = r"""
                      - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
                     """
@@ -1217,13 +1310,92 @@ end
         end
         @test result_matching
     end
+
+    @testset "Report generation of all the folder" begin
+        # This is a slow test
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n  @async 1 + 1\nend\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report(
+                    [file1],
+                    output_file;
+                    json_output=json_io,
+                    github_repository="RelationalAI/raicode",
+                    branch_name="axb-foo-bar",
+                    file_prefix_to_remove="var/",
+                    analyze_all_file_found_locally=true
+                )
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+
+                # There are more than 10 files in StaticLint.jl
+                # and more than 1 violations and recommendations.
+                @test json_report[:data][:files_count] > 10
+                @test json_report[:data][:violation_count] > 1
+                @test json_report[:data][:recommandation_count] > 0
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+                last_line = filter(!isempty, split(result, "\n"))[end]
+                @test last_line != "No Julia file is modified or added in this PR."
+            end
+        end
+    end
+
+    @testset "Limiting report" begin
+        # this tests create a Julia file with 100 violations, the report should mention
+        # 100 violations, however only (an arbitrary) 30 are reported.
+        local result_matching = false
+        mktempdir() do dir
+            file1 = joinpath(dir, "foo.jl")
+            open(file1, "w") do io1
+                write(io1, "function f()\n")
+                for _ in 1:100
+                    write(io1, "    @async 1 + 1\n")
+                end
+                write(io1, "end\n")
+                flush(io1)
+
+                output_file = tempname()
+                json_io = IOBuffer()
+                StaticLint.generate_report([file1], output_file; json_output=json_io)
+
+                json_report = JSON3.read(String(take!(json_io)))
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] == 1
+                @test json_report[:data][:recommandation_count] == 0
+                @test json_report[:data][:violation_count] == 100
+
+                local result
+                open(output_file) do oo
+                    result = read(oo, String)
+                end
+                all_lines = split(result, "\n")
+                lines_count = length(all_lines)
+                @test lines_count < 70
+
+                @test all_lines[end-2] == "⚠️Only a subset of the violations and recommandations are here reported⚠️"
+                @test all_lines[end-1] == "🚨**In total, 100 rule violations and 0 PR reviewer recommendation are found over 1 Julia file**🚨"
+                @test all_lines[end] == ""
+            end
+        end
+    end
 end
 
 @testset "Running on a directory" begin
     @testset "Non empty directory" begin
-        local r = 0
-        a = 0
-        b = 0
+        local r
+        r = LintResult()
+
         formatters = [StaticLint.PlainFormat(), StaticLint.MarkdownFormat()]
         for formatter in formatters
             mktempdir() do dir
@@ -1231,18 +1403,16 @@ end
                     write(io, "function f()\n  @async 1 + 1\nend\n")
                     flush(io)
                     str = IOBuffer()
-                    ta, tb = StaticLint.run_lint(dir; io=str, formatter)
-                    a += ta
-                    b += tb
+                    append!(r, StaticLint.run_lint(dir; io=str, formatter))
                 end
             end
         end
-        @test (a + b) == 2
+        @test (r.violations_count + r.recommendations_count) == 2
     end
 
     @testset "Empty directory" begin
         mktempdir() do dir
-            @test StaticLint.run_lint(dir) == (0, 0)
+            @test StaticLint.run_lint(dir) == LintResult()
         end
     end
 end
@@ -1571,4 +1741,130 @@ end
     ----------
     """
     @test !isnothing(match(expected, result))
+end
+
+@testset "Checking string interpolation" begin
+    source_with_error = raw"""
+    function f(conf)
+        @info "($conf.container.baseurl)"
+    end
+    """
+
+    source_with_error2 = raw"""
+    function f(conf)
+        @info "$conf.container.baseurl"
+    end
+    """
+
+    source_with_error3 = raw"""
+    function f(conf)
+        @info "this string contains an error $conf.container.baseurl indeed!"
+    end
+    """
+
+    source_without_error = raw"""
+    function f(conf)
+        @info "$(conf.container.baseurl)"
+    end
+    """
+
+    source_without_error2 = raw"""
+    function f(conf)
+        @info "this string contains an error $(conf.container.baseurl) indeed!"
+    end
+    """
+
+    source_without_error3 = raw"""
+    function f(conf)
+        @info "this string contains an error $conf .container.baseurl indeed!"
+    end
+    """
+
+    source_without_error4 = raw"""
+    function f(engine_name)
+        @info "Issuing delete request for engine $engine_name..."
+    end
+    """
+    @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(source_with_error2, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(source_with_error3, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+
+    @test count_lint_errors(source_without_error) == 0
+    @test count_lint_errors(source_without_error2) == 0
+    @test count_lint_errors(source_without_error3) == 0
+    @test count_lint_errors(source_without_error4) == 0
+
+
+    # FALSE POSITIVE
+    # StaticLint reports false positive, ie., a rule violation that is not an issue
+    false_positive1 = raw"""
+    function f()
+        profile_filename = "profile-$(timestamp).pb.gz"
+    end
+    """
+
+    false_positive2 = raw"""
+    function f()
+        Source("model/$name", "model/$name",  read(joinpath(@__DIR__, "models", "$name.rel"), String))
+    end
+    """
+    false_positive3 = raw"""
+    function f()
+        path = "$dir/$name.csv"
+    end
+    """
+
+    @test lint_test(false_positive1, raw"Line 2, column 24: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(false_positive2, raw"Line 2, column 77: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+    @test lint_test(false_positive3, raw"Line 2, column 12: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
+
+end
+
+@testset "Arithmetic LintResult" begin
+    l1 = LintResult()
+    l2 = LintResult(1, 2, 3)
+    l3 = LintResult(10, 20, 30)
+    l4 = LintResult(10, 20, 30, ["foo.jl"], 100)
+    l5 = LintResult(10, 20, 30, ["foo2.jl"], 250)
+
+    @test l1 == l1
+    @test l1 == LintResult()
+    # @test (l1 + l2) == l2
+    # @test (l3 + l2) == LintResult(11, 22, 33)
+    @test l4 != l5
+    @test l3 != l4
+    @test l3 != l5
+
+    append!(l4, l5)
+    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"], 350)
+end
+
+@testset "RelPath Front-End" begin
+    source = """
+        function rel_sig_from_relpath(path)
+            (name, types) = split_path(path)
+            return RelationSignature(name, types.elements)
+        end
+
+        function interpret(x, y, path)
+            rest = drop_first(path)
+            return RelPath(rest.elements[2:end])
+        end
+
+        function reverse(decl::EdbDecl)
+            return relpath_from_signature(decl.signature)
+        end
+
+        function use_path(x, y::RelPath, z)
+            return y.elements
+        end
+    """
+
+    @test count_lint_errors(source; directory="/src/Compiler/Front") == 5
+    @test count_lint_errors(source; directory="") == 0
+
+    @test lint_test(source,
+        "Line 2, column 25: Usage of `RelPath` API method `split_path` is not allowed in this context.";
+        directory="/src/Compiler/Front"
+    )
 end

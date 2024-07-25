@@ -49,8 +49,8 @@ include("extended_checks.jl")
 const LintCodeDescriptions = Dict{LintCodes,String}(
     IncorrectCallArgs => "Possible method call error.",
     IncorrectIterSpec => "A loop iterator has been used that will likely error.",
-    NothingEquality => "Compare against `nothing` using `isnothing` or `===`",
-    NothingNotEq => "Compare against `nothing` using `!isnothing` or `!==`",
+    NothingEquality => "Compare against `nothing` using `isnothing` or `===`.",
+    NothingNotEq => "Compare against `nothing` using `!isnothing` or `!==`.",
     ConstIfCondition => "A boolean literal has been used as the conditional of an if statement - it will either always or never run.",
     EqInIfConditional => "Unbracketed assignment in if conditional statements is not allowed, did you mean to use ==?",
     PointlessOR => "The first argument of a `||` call is a boolean literal.",
@@ -361,7 +361,9 @@ function check_call(x, env::ExternalEnv)
 
                 func_ref.name.name in [:copy] && return
             end
-            function_name = fetch_value(func_ref.name, :IDENTIFIER)
+            function_name = func_ref.name isa SymbolServer.FakeTypeName ?
+                                fetch_value(func_ref.name.name, :IDENTIFIER) :
+                                fetch_value(func_ref.name, :IDENTIFIER)
             function_name in ["delete!", "copy", "copy!", "write", "hash", "iterate"] && return
             seterror!(x, "Possible method call error: $(function_name).")
         end

@@ -1,6 +1,62 @@
 using Dates
 using JSON3
 
+mutable struct LintResult
+    files_count::Int64
+    violations_count::Int64
+    recommendations_count::Int64
+    linted_files::Vector{String}
+    printout_count::Int64
+
+    LintResult(a, b, c, d, e) = new(a, b, c, d, e)
+end
+
+LintResult() = LintResult(0, 0, 0, String[], 0)
+LintResult(a, b, c) = LintResult(a, b, c, String[])
+LintResult(a, b, c, d) = LintResult(a, b, c, d, 0)
+
+# function Base.:+(l1::LintResult, l2::LintResult)
+#     return LintResult(
+#         l1.files_count + l2.files_count,
+#         l1.violations_count + l2.violations_count,
+#         l1.recommendations_count + l2.recommendations_count,
+#         vcat(l1.linted_files, l2.linted_files)
+#     )
+# end
+
+function Base.append!(l1::LintResult, l2::LintResult)
+    # if !isempty(l2.linted_files)
+    #     if first(l2.linted_files) in l1.linted_files
+    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    #         @error "ERROROOOOO"
+    #     end
+    # end
+
+    l1.files_count += l2.files_count
+    l1.violations_count += l2.violations_count
+    l1.recommendations_count += l2.recommendations_count
+    Base.append!(l1.linted_files, l2.linted_files)
+    l1.printout_count += l2.printout_count
+end
+
+function Base.:(==)(l1::LintResult, l2::LintResult)
+    return l1.files_count == l2.files_count &&
+           l1.violations_count == l2.violations_count &&
+           l1.recommendations_count == l2.recommendations_count &&
+           l1.linted_files == l2.linted_files &&
+           l1.printout_count == l2.printout_count
+end
+
+function is_already_linted(l::LintResult, filename)
+    return filename in l.linted_files
+end
+
+function has_values(l::LintResult, a, b, c)
+    return  l.files_count == a &&
+            l.violations_count == b &&
+            l.recommendations_count == c
+end
+
 function setup_server(
     env = dirname(SymbolServer.Pkg.Types.Context().env.project_file),
     depot = first(SymbolServer.Pkg.depots()),
@@ -149,7 +205,9 @@ struct PlainFormat <: AbstractFormatter end
 
 # MarkdownFormat can optionally contains github information. This is useful when a
 # report is generated which contains Markdown links.
-# file_prefix_to_remove corresponds to a prefix files will be removed when generating the report
+# file_prefix_to_remove corresponds to a prefix files will be removed when generating the
+# report. This is useful because GitHub Action clones a repository in a folder of the same
+# name. In our case, GHA will create /home/runner/work/raicode/raicode
 struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
@@ -160,7 +218,7 @@ struct MarkdownFormat <: AbstractFormatter
 end
 
 """
-    filter_and_print_hint(hint_as_string::String, io::IO=stdout, filters::Vector=[])
+    filter_and_print_hint(...)
 
 Essential function to filter and print a `hint_as_string`, being a String.
 Return true if the hint was printed, else it was filtered.
@@ -168,12 +226,14 @@ It takes the following arguments:
     - `hint_as_string` to be filtered or printed
     - `io` stream where the hint is printed, if not filtered
     - `filters` the set of filters to be used
+    - `lint_result` is the current lint result. We used it to limit the produced report.
 """
 function filter_and_print_hint(
     hint_as_string::String,
+    lint_result::LintResult,
     io::IO=stdout,
     filters::Vector{LintCodes}=LintCodes[],
-    formatter::AbstractFormatter=PlainFormat()
+    formatter::AbstractFormatter=PlainFormat(),
 )
     # Filter along the message
     should_be_filtered(hint_as_string, filters) && return false
@@ -191,13 +251,19 @@ function filter_and_print_hint(
 
     # Remove the offset from the result. No need for this.
     cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
+
+    should_print_hint(result) = result.printout_count <= 60
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
         has_no_annotation = isnothing(annotation_line)
         if has_no_annotation
             # No annotation, so we merely print the reported error.
-            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+            if should_print_hint(lint_result)
+                # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+                lint_result.printout_count += 1
+            end
             return true
         else
             # there is an annotation, we need to distinguish if it is specific or not
@@ -218,7 +284,11 @@ function filter_and_print_hint(
             if is_specific_disable_annotation && startswith(cleaned_hint, msg)
                 return false
             end
-            print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+
+            if should_print_hint(lint_result)
+                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
+                lint_result.printout_count += 1
+            end
             return true
         end
     catch
@@ -230,6 +300,7 @@ end
 
 function _run_lint_on_dir(
     rootpath::String;
+    result::LintResult=LintResult(),
     server = global_server,
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
@@ -237,26 +308,24 @@ function _run_lint_on_dir(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
-    local a, b
-    a = 0
-    b = 0
+    # Exit if we are in .git
+    !isnothing(match(r".*/\.git.*", rootpath)) && return result
+
     for (root, dirs, files) in walkdir(rootpath)
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                ta, tb = run_lint(filename; server, io, io_violations, io_recommendations, filters, formatter)
-                a += ta
-                b += tb
+                run_lint(filename; result, server, io, io_violations, io_recommendations, filters, formatter)
             end
         end
 
         for dir in dirs
-            ta, tb = _run_lint_on_dir(joinpath(root, dir); server, io, io_violations, io_recommendations, filters, formatter)
-            a += ta
-            b += tb
+            p = joinpath(root, dir)
+            !isnothing(match(r".*/\.git.*", p)) && continue
+            _run_lint_on_dir(p; result, server, io, io_violations, io_recommendations, filters, formatter)
         end
     end
-    return a, b
+    return result
 end
 
 function print_header(::PlainFormat, io::IO, rootpath::String)
@@ -314,15 +383,16 @@ print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendat
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
 
-Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return the
-number of identifide errors.
+Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return a
+LintResult.
+
 Example of use:
     import StaticLint
     StaticLint.run_lint("foo/bar/myfile.jl")
-
 """
 function run_lint(
     rootpath::String;
+    result::LintResult=LintResult(),
     server = global_server,
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
@@ -330,12 +400,15 @@ function run_lint(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    # If already linted, then we merely exit
+    rootpath in result.linted_files && return result
+
     # If we are running Lint on a directory
-    isdir(rootpath) && return _run_lint_on_dir(rootpath; server, io, io_violations, io_recommendations, filters, formatter)
+    isdir(rootpath) && return _run_lint_on_dir(rootpath; result, server, io, io_violations, io_recommendations, filters, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
-    endswith(rootpath, ".jl") || return 0, 0
+    endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
     _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
@@ -345,48 +418,38 @@ function run_lint(
     hint_as_strings = map(l -> l[2], hints)
     hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
     function extract_msg_from_hint(m)
-        r = match(r"(?<msg>.+)\. \H+", m)
+        r = match(r"(?<msg>.+)[\.\?] \H+", m)
+
+        # We are now reaching a bug HERE
+        if isnothing(r)
+            @error "BUG FOUND IN StaticLint.jl, message from hint $m cannot be extracted"
+            return "ERROR"
+        end
+
         return r[:msg] * "."
     end
 
-    # msgs_from_hints = map(extract_msg_from_hint, hint_as_strings)
-
     @assert all(h -> typeof(h) == String, hint_as_strings)
 
-
+    # NO MORE THAN 30 VIOLATIONS AND 30 PR RECOMMENDATIONS
     violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
     recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
 
-    # filtered_and_printed_hints = filter(h->filter_and_print_hint(h[2], io, filters, formatter), hints)
-
     io_tmp = isnothing(io_violations) ? io : io_violations
-    # println(io_tmp, "Violations:")
     filtered_and_printed_hints_violations =
-        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), violation_hints)
-    # if !isempty(filtered_and_printed_hints_violations)
-    #     print(io, String(take!(io_tmp)))
-    # end
+        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), violation_hints)
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-    # println(io_tmp, "\nRecommendations:")
 
     filtered_and_printed_hints_recommandations =
-        filter(h->filter_and_print_hint(h, io_tmp, filters, formatter), recommendation_hints)
-    # println(io_tmp)
-    # if !isempty(filtered_and_printed_hints_recommandations)
-    #     print(io, String(take!(io_tmp)))
-    # end
+        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), recommendation_hints)
 
     count_violations = length(filtered_and_printed_hints_violations)
     count_recommendations = length(filtered_and_printed_hints_recommandations)
-    # print_summary(
-    #     formatter,
-    #     io,
-    #     count_violations,
-    #     count_recommendations
-    # )
-    # print_footer(formatter, io)
-    return (count_violations, count_recommendations)
+
+    # We run Lint on a single file.
+    append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
+    return result
 end
 
 """
@@ -397,6 +460,7 @@ useful to test some rules that depends on the filename.
 """
 function run_lint_on_text(
     source::String;
+    result::LintResult=LintResult(),
     server = global_server,
     io::Union{IO,Nothing}=stdout,
     filters::Vector{LintCodes}=essential_filters,
@@ -416,13 +480,10 @@ function run_lint_on_text(
         tmp_file_name = joinpath(tmp_dir, "tmp_julia_file.jl")
     end
 
-    count_violations=0
-    count_recommendations=0
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        count_violations, count_recommendations =
-            run_lint(tmp_file_name; server, io, io_violations, io_recommendations, filters, formatter)
+        run_lint(tmp_file_name; result, server, io, io_violations, io_recommendations, filters, formatter)
     end
 
     print(io, String(take!(io_violations)))
@@ -431,8 +492,8 @@ function run_lint_on_text(
     print_summary(
         formatter,
         io,
-        count_violations,
-        count_recommendations
+        result.violations_count,
+        result.recommendations_count
     )
     print_footer(formatter, io)
 
@@ -447,7 +508,8 @@ function print_datadog_report(
     json_output::IO,
     report_as_string::String,
     files_count::Int64,
-    errors_count::Int64
+    violation_count::Int64,
+    recommandation_count::Int64,
 )
     event = Dict(
         :source => "StaticLint",
@@ -457,62 +519,106 @@ function print_datadog_report(
         :data => Dict(
                     :report_as_string=>report_as_string,
                     :files_count => files_count,
-                    :errors_count => errors_count)
+                    :violation_count => violation_count,
+                    :recommandation_count => recommandation_count,
+                    )
     )
     println(json_output, JSON3.write(event))
 end
 
 """
-    generate_report(filenames::Vector{String}, output_filename::String, json_output::IO=stdout)
+    generate_report(filenames::Vector{String}, output_filename::String;...)
 
 Main entry point of StaticLint.jl. The function `generate_report` takes as argument a list
-of files on which lint has to process. A report is generated containing the result.
+of files on which lint has to process. A report is generated containing the result of the
+Lint analysis.
 
 The procuded markdown report is intenteded to be posted as a comment on a GitHub PR.
+Furthermore, a JSON report file is produced to feed DataDog.
+
+Here are the arguments:
+
+    - `filenames` is the list of all the file that have to be analyzed. From this lint
+only Julia files are considered. Filenames provided to that list that do not end with `.jl`
+will be simply ignored. Note that this variable is not considered if
+`analyze_all_file_found_locally` is set to true.
+    - `output_filename` is the file to be created that will contains the Markdown report.
+If the file already exist, then the no analysis is run.
+    - `json_output` is an output stream to which the JSON report has to be printed. Note
+that the value provided to this variable may be overriden by `json_filename`. In the future,
+the variable `json_output` can be removed.
+    - `json_filename` file is a filename used to create the JSON report for DataDog
+    - `github_repository` is the name of the repository, e.g., `raicode`
+    - `branch_name` is a GitHub branch name, useful for the reporting
+    - `file_prefix_to_remove` prefix to remove for all the file to be analyzed. This is
+because GHAction creates a folder of the same name before cloning it. However, this
+option can be removed in the future with a simple `cd` in that folder.
+    - `analyze_all_file_found_locally`, when set to `true` the `filenames` argument  is not
+used and instead all the file found locally, from `.` will be analyzed. This is used by
+the github action workflow to run Lint on master.
 
 When provided, `github_repository` and `branch_name` are used to have clickable links in
 the Markdown report.
+
+
 """
 function generate_report(
     filenames::Vector{String},
     output_filename::String;
     json_output::IO=stdout,
+    json_filename::Union{Nothing,String}=nothing,  # Override `json_output` when not nothing
     github_repository::String="",
     branch_name::String="",
-    file_prefix_to_remove::String=""
+    file_prefix_to_remove::String="",
+    analyze_all_file_found_locally::Bool=false,
 )
     if isfile(output_filename)
         @error "File $output_filename exist already."
         return
     end
 
+    if !isnothing(json_filename)
+        if isfile(json_filename)
+            @error "File $output_filename exist already, cannot create json file."
+            return
+        end
+        json_output = open(json_filename, "w")
+    end
+
     local errors_count = 0
     local julia_filenames = filter(n->endswith(n, ".jl"), filenames)
-    local files_count = length(julia_filenames)
+
+    # Result of the whole analysis
+    lint_result = LintResult()
+
+    # If analyze_all_file_found_locally is set to true, we discard all the provided files
+    # and analyze everything accessible from "."
+    if analyze_all_file_found_locally
+        julia_filenames = ["."]
+    end
 
     open(output_filename, "w") do output_io
         println(output_io, "## Static code analyzer report")
         println(output_io, "**Output of the [StaticLint.jl code analyzer]\
-            (https://github.com/RelationalAI/StaticLint.jl)**\n\
+            (https://github.com/RelationalAI/StaticLint.jl). \
+            🫵[Want to contribute?](https://github.com/RelationalAI/StaticLint.jl/blob/main/README.md#contributing-to-staticlintjl)🫵**\n\
             Report creation time (UTC): ($(now()))")
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
-        a = 0
-        b = 0
 
         io_violations = IOBuffer()
         io_recommendations = IOBuffer()
 
         for filename in julia_filenames
-            ta, tb = StaticLint.run_lint(
-                                    filename;
-                                    io = output_io,
-                                    io_violations = io_violations,
-                                    io_recommendations = io_recommendations,
-                                    filters = essential_filters,
-                                    formatter)
-            a += ta
-            b += tb
+            StaticLint.run_lint(
+                filename;
+                result = lint_result,
+                io = output_io,
+                io_violations = io_violations,
+                io_recommendations = io_recommendations,
+                filters = essential_filters,
+                formatter
+            )
         end
         print(output_io, String(take!(io_violations)))
 
@@ -521,31 +627,40 @@ function generate_report(
             println(output_io, "\n")
             println(output_io, """
                                 <details>
-                                <summary>For PR Reviewer ($b)</summary>
+                                <summary>For PR Reviewer ($(lint_result.recommendations_count))</summary>
 
                                 $(recommendations)
                                 </details>
                                 """)
         end
 
-        has_julia_file = any(n->endswith(n, ".jl"), julia_filenames)
+        has_julia_file = !isempty(lint_result.linted_files)
+
+        if lint_result.violations_count + lint_result.recommendations_count > lint_result.printout_count
+            println(output_io, "⚠️Only a subset of the violations and recommandations are here reported⚠️")
+        end
+
         ending = length(julia_filenames) > 1 ? "s" : ""
         if !has_julia_file
             println(output_io, "No Julia file is modified or added in this PR.")
         else
-            errors_count = a + b
+            errors_count = lint_result.violations_count + lint_result.recommendations_count
             if iszero(errors_count)
                 print(output_io, "🎉No potential threats are found over $(length(julia_filenames)) Julia file$(ending).👍\n\n")
             else
-                s_vio = a > 1 ? "s" : ""
-                s_rec = b > 1 ? "s" : ""
+                s_vio = lint_result.violations_count > 1 ? "s" : ""
+                s_rec = lint_result.recommendations_count > 1 ? "s" : ""
                 is_or_are = errors_count == 1 ? "is" : "are"
-                s_fil = files_count > 1 ? "s" : ""
-                println(output_io, "🚨**In total, $(a) rule violation$(s_vio) and $(b) PR reviewer recommendation$(s_rec) $(is_or_are) found over $(files_count) Julia file$(s_fil)**🚨")
+                s_fil = lint_result.files_count > 1 ? "s" : ""
+                println(output_io, "🚨**In total, $(lint_result.violations_count) rule violation$(s_vio) and $(lint_result.recommendations_count) PR reviewer recommendation$(s_rec) $(is_or_are) found over $(lint_result.files_count) Julia file$(s_fil)**🚨")
             end
         end
     end
 
     report_as_string = open(output_filename) do io read(io, String) end
-    print_datadog_report(json_output, report_as_string, files_count, errors_count)
+    print_datadog_report(json_output, report_as_string, lint_result.files_count, lint_result.violations_count, lint_result.recommendations_count)
+
+    if !isnothing(json_filename)
+        close(json_output)
+    end
 end
