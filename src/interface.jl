@@ -187,7 +187,7 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
             else
                 annotation = nothing
             end
-            result = index_line, offset - current_codepoint, annotation
+            result = index_line, (offset - current_codepoint + 1), annotation
             annotation = nothing
             return result
         end
