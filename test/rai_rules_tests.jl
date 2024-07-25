@@ -1516,7 +1516,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1530,7 +1530,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test lint_has_error_test(source)
         @test lint_test(source,
@@ -1558,7 +1558,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1572,7 +1572,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end

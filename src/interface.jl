@@ -159,22 +159,22 @@ end
 #   * `nothing`      if there is no `lint-disable-next-line` annotation.
 #   * ""::SubString  if the end of the line is "lint-disable-next-line".
 #   * s::SubString   if the end of the line is "lint-disable_next_line: $s"
-function disable_next_line_annotation(line::AbstractString)
+function annotation_for_next_line(line::AbstractString)
     if endswith(line, "lint-disable-next-line")
         return ""
     end
     # An annotation must be in a comment and not contain any `#` or `"` characters.
-    m = match(r"# lint-disable-next-line: [^\"#]$", line)
-    return isnothing(m) ? nothing : m.match
+    m = match(r"# lint-disable-next-line: *([^\"#]+)$", line)
+    return isnothing(m) ? nothing : m[1]
 end
 
-function disable_this_line_annotation(line::AbstractString)
+function annotation_for_this_line(line::AbstractString)
     if endswith(line, "lint-disable-line")
         return ""
     end
     # An annotation must be in a comment and not contain any `#` or `"` characters.
-    m = match(r"# lint-disable-line: [^\"#]$", line)
-    return isnothing(m) ? nothing : m.match
+    m = match(r"# lint-disable-line: *([^\"#]+)$", line)
+    return isnothing(m) ? nothing : m[1]
 end
 
 # Return a triple: (line::Int, column::Int, annotation::Option(String))
@@ -193,10 +193,11 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
     prev_annotation::Union{Nothing,SubString} = nothing
     this_annotation::Union{Nothing,SubString} = nothing
     for (line_number, line) in enumerate(all_lines)
-        this_annotation = disable_this_line_annotation(line)
-        # Add one to the range for the newline.
-        if offset in current_codepoint:(current_codepoint + sizeof(line) + 1)
-            offset_in_line = offset - current_codepoint
+        this_annotation = annotation_for_this_line(line)
+        # current_codepoint + sizeof(line) is possibly pointing at the newline that isn't
+        # actually stored in `line`.
+        if offset in current_codepoint:(current_codepoint + sizeof(line))
+            index_in_line = offset - current_codepoint + 1 # possibly off the end by 1.
             if !isnothing(this_annotation)
                 annotation = this_annotation
             elseif !isnothing(prev_annotation)
@@ -211,9 +212,13 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
                     annotation = "lint-disable-line: " * annotation
                 end
             end
-            return line_number, length(line, 1, offset_in_line + 1), annotation
+            if index_in_line == sizeof(line) + 1
+                return line_number, length(line)+1, annotation
+            else
+                return line_number, length(line, 1, index_in_line), annotation
+            end
         end
-        prev_annotation = disable_next_line_annotation(line)
+        prev_annotation = annotation_for_next_line(line)
         current_codepoint += sizeof(line) + 1 # 1 is for the newline
     end
     throw(BoundsError("source", offset))
@@ -295,16 +300,12 @@ function filter_and_print_hint(
                 return false
             end
 
-            is_specific_disable_annotation =
-                startswith(annotation_line, "lint-disable-line") &&
-                length(annotation_line) > length("lint-disable-line")
-
-            v = match(r"lint-disable-line (?<msg>.*)", annotation_line)
+            v = match(r"lint-disable-line: (?<msg>.*)$", annotation_line)
             msg = isnothing(v) ? nothing : v[:msg]
 
             # if it is specific, and the reported error is different from the provided error
             # then we report the error
-            if is_specific_disable_annotation && startswith(cleaned_hint, msg)
+            if !isnothing(msg) && startswith(cleaned_hint, msg)
                 return false
             end
 
@@ -314,8 +315,9 @@ function filter_and_print_hint(
             end
             return true
         end
-    catch
-        @error "Cannot retreive offset=$offset in file $filename"
+    catch e
+        @assert e isa BoundsError
+        @error "Cannot retrieve offset=$offset in file $filename"
     end
     return false
 end

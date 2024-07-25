@@ -11,7 +11,8 @@
     @test convert_offset_to_line_from_lines(4, ["──"]) == (1,2,nothing)
     @test convert_offset_to_line_from_lines(5, ["──"]) == (1,2,nothing)
     @test convert_offset_to_line_from_lines(6, ["──"]) == (1,2,nothing)
-    @test_throws BoundsError convert_offset_to_line_from_lines(7, ["──"]) 
+    @test convert_offset_to_line_from_lines(7, ["──"]) == (1,3,nothing)
+    @test_throws BoundsError convert_offset_to_line_from_lines(8, ["──"]) 
 end
 
 @testset "StaticLint" begin
