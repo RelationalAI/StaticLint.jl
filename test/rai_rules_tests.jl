@@ -1886,12 +1886,12 @@ end
     @test count_lint_errors(source; directory="/src/Compiler/Front") == 0
 
     @test lint_test(source,
-        "Line 1, column 63: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
+        "Line 1, column 67: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
         directory="/src/Execution"
     )
 
     @test lint_test(source,
-        "Line 7, column 48: Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.";
+        "Line 7, column 46: Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.";
         directory="/src/Execution"
     )
 end
