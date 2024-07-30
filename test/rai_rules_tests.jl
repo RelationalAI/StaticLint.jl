@@ -1869,3 +1869,29 @@ end
         directory="/src/Compiler/Front"
     )
 end
+
+@testset "Shapes outside Front-End" begin
+    source = """
+        function get_relation_infos(rt::Runtime, name::Symbol, shape::Shape)
+            idb_overloads = Front.idb_overloads_for_shape(rt, shape)
+            return idb_overloads
+        end
+
+        function get_relation_values(rt::Runtime, name::Symbol)
+            return get_relation_values(rt, name, Front.shape_splat(Shape))
+        end
+    """
+
+    @test count_lint_errors(source; directory="/src/Execution") == 3
+    @test count_lint_errors(source; directory="/src/Compiler/Front") == 0
+
+    @test lint_test(source,
+        "Line 1, column 67: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
+        directory="/src/Execution"
+    )
+
+    @test lint_test(source,
+        "Line 7, column 46: Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.";
+        directory="/src/Execution"
+    )
+end
