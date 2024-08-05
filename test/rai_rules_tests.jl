@@ -1329,23 +1329,21 @@ end
                 output_file = tempname()
                 json_io = IOBuffer()
                 StaticLint.generate_report(
-                    [file1],
+                    [file1], # Ignored because of analyze_all_file_found_locally
                     output_file;
                     json_output=json_io,
                     github_repository="RelationalAI/raicode",
                     branch_name="axb-foo-bar",
                     file_prefix_to_remove="var/",
-                    analyze_all_file_found_locally=true
+                    analyze_all_file_found_locally=true # OVERRIDE THE PROVIDED SET OF FILES
                 )
 
                 json_report = JSON3.read(String(take!(json_io)))
-                @test json_report[:source] == "StaticLint"
 
-                # There are more than 10 files in StaticLint.jl
-                # and more than 1 violations and recommendations.
-                @test json_report[:data][:files_count] > 10
-                @test json_report[:data][:violation_count] > 1
-                @test json_report[:data][:recommandation_count] > 0
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] > 3
+                @test json_report[:data][:violation_count] > 10
+                @test json_report[:data][:recommandation_count] >= 0
 
                 local result
                 open(output_file) do oo

@@ -2,11 +2,11 @@ using Dates
 using JSON3
 
 mutable struct LintResult
-    files_count::Int64
-    violations_count::Int64
-    recommendations_count::Int64
+    files_count::Integer
+    violations_count::Integer
+    recommendations_count::Integer
     linted_files::Vector{String}
-    printout_count::Int64
+    printout_count::Integer
 
     LintResult(a, b, c, d, e) = new(a, b, c, d, e)
 end
@@ -138,7 +138,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     end
 end
 
-global global_server = setup_server()
+global global_server = nothing
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
@@ -150,7 +150,7 @@ function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filen
     return convert_offset_to_line_from_lines(offset, all_lines)
 end
 
-function convert_offset_to_line(offset::Int, source::String)
+function convert_offset_to_line(offset::Integer, source::String)
     return convert_offset_to_line_from_lines(offset, split(source, "\n"))
 end
 
@@ -184,7 +184,7 @@ end
 #
 # Note: `offset` is measured in codepoints.  The returned `column` is a character
 # offset, not a codepoint offset.
-function convert_offset_to_line_from_lines(offset::Int, all_lines)
+function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_codepoint = 1
@@ -367,8 +367,8 @@ end
 function print_summary(
     ::PlainFormat,
     io::IO,
-    count_violations::Int,
-    count_recommendations::Int
+    count_violations::Integer,
+    count_recommendations::Integer
 )
     nb_hints = count_violations + count_recommendations
     if iszero(nb_hints)
@@ -415,7 +415,13 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
 end
 
-print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
+print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
+
+does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
+function initialize_file_server()
+    StaticLint.global_server = setup_server()
+    return StaticLint.global_server
+end
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
@@ -437,6 +443,11 @@ function run_lint(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    # If no server is defined, then we define it.
+    if does_file_server_need_to_be_initialized()
+        server = initialize_file_server()
+    end
+
     # If already linted, then we merely exit
     rootpath in result.linted_files && return result
 
@@ -544,9 +555,9 @@ end
 function print_datadog_report(
     json_output::IO,
     report_as_string::String,
-    files_count::Int64,
-    violation_count::Int64,
-    recommandation_count::Int64,
+    files_count::Integer,
+    violation_count::Integer,
+    recommandation_count::Integer,
 )
     event = Dict(
         :source => "StaticLint",
@@ -631,7 +642,7 @@ function generate_report(
     # If analyze_all_file_found_locally is set to true, we discard all the provided files
     # and analyze everything accessible from "."
     if analyze_all_file_found_locally
-        julia_filenames = ["."]
+        julia_filenames = [pwd()]
     end
 
     open(output_filename, "w") do output_io
