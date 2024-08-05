@@ -124,8 +124,8 @@ end
             "Line 2, column 5: `@lock` should be used with extreme caution")
         @test lint_test(source,
             "Line 7, column 5: `@threads` should be used with extreme caution.")
-        #@test lint_test(source,
-        #    "Line 14, column 1: `@generated` should be used with extreme caution.")
+        @test lint_test(source,
+           "Line 14, column 1: `@generated` should be used with extreme caution.")
         @test lint_test(source,
             "Line 20, column 5: `@sync` should be used with extreme caution.")
         @test lint_test(source,
