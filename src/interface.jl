@@ -415,7 +415,7 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
 end
 
-print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
+print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
 
 does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
 function initialize_file_server()
