@@ -24,4 +24,8 @@ function check_resolved(s)
 end
 
 include(joinpath(@__DIR__, "static_lint_tests.jl"))
+
+StaticLint.global_server = nothing
 include(joinpath(@__DIR__, "rai_rules_tests.jl"))
+StaticLint.global_server = nothing
+
