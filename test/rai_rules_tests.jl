@@ -1329,7 +1329,7 @@ end
                 output_file = tempname()
                 json_io = IOBuffer()
                 StaticLint.generate_report(
-                    [file1], #The provided file is ignored because of analyze_all_file_found_locally
+                    [file1], # Ignored because of analyze_all_file_found_locally
                     output_file;
                     json_output=json_io,
                     github_repository="RelationalAI/raicode",
