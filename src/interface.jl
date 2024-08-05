@@ -187,7 +187,8 @@ function convert_offset_to_line_from_lines(offset::Int, all_lines)
             else
                 annotation = nothing
             end
-            result = index_line, length(line, 1, (offset - current_codepoint + 1)), annotation
+            s = min(length(line), (offset - current_codepoint + 1))
+            result = index_line, length(line, 1, s), annotation
             annotation = nothing
             return result
         end
@@ -252,7 +253,7 @@ function filter_and_print_hint(
     # Remove the offset from the result. No need for this.
     cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
 
-    should_print_hint(result) = result.printout_count <= 60
+    should_print_hint(result) = true #result.printout_count <= 60
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 

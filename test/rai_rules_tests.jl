@@ -534,7 +534,7 @@ end
         @test lint_test(source,
             "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
         @test lint_test(source,
-            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 8, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -687,6 +687,10 @@ end
 
     # @test t(raw"\"($x)\"", "\"LINT_STRING\"")
 
+    @test t("add(x, y)::Int = x + y", "add(x, y)::Int = x + y")
+    @test t("hole_variable(hole_variable_star)::hole_variable = x + y", "add(x, y)::Int = x + y")
+    @test t("hole_variable(hole_variable_star)::hole_variable = hole_variable", "add()::Int = x + y")
+    @test t("function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", "function add()::Int return x + y end")
 end
 
 @testset "unsafe functions" begin
@@ -759,8 +763,8 @@ end
 
     @test convert_offset_to_line(10, source) == (1, 10, nothing)
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
+    @test convert_offset_to_line(43, source) == (2, 29, nothing)
+    @test convert_offset_to_line(47, source) == (3, 3, nothing)
 
 end
 
