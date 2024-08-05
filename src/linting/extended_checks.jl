@@ -168,7 +168,6 @@ struct Sleep_Extension <: RecommendationExtendedRule end
 struct Mmap_Extension <: RecommendationExtendedRule end
 struct Future_Extension <: RecommendationExtendedRule end
 struct Wait_Extension <: RecommendationExtendedRule end
-struct Fetch_Extension <: RecommendationExtendedRule end
 struct Inbounds_Extension <: RecommendationExtendedRule end
 struct Atomic_Extension <: RecommendationExtendedRule end
 struct Ptr_Extension <: RecommendationExtendedRule end
@@ -356,7 +355,6 @@ function check(t::Mmap_Extension, x::EXPR)
     generic_check(t, x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
 end
 
-check(t::Fetch_Extension, x::EXPR) = generic_check(t, x, "fetch(hole_variable)")
 check(t::Inbounds_Extension, x::EXPR) = generic_check(t, x, "@inbounds hole_variable")
 
 function check(t::Atomic_Extension, x::EXPR)
