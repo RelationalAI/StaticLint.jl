@@ -138,7 +138,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     end
 end
 
-global global_server = setup_server()
+global global_server = nothing
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
@@ -417,6 +417,12 @@ end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
 
+does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
+function initialize_file_server()
+    StaticLint.global_server = setup_server()
+    return StaticLint.global_server
+end
+
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
 
@@ -437,6 +443,11 @@ function run_lint(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    # If no server is defined, then we define it.
+    if does_file_server_need_to_be_initialized()
+        server = initialize_file_server()
+    end
+
     # If already linted, then we merely exit
     rootpath in result.linted_files && return result
 
@@ -631,7 +642,7 @@ function generate_report(
     # If analyze_all_file_found_locally is set to true, we discard all the provided files
     # and analyze everything accessible from "."
     if analyze_all_file_found_locally
-        julia_filenames = ["."]
+        julia_filenames = [pwd()]
     end
 
     open(output_filename, "w") do output_io
