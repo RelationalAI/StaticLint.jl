@@ -184,7 +184,7 @@ end
 #
 # Note: `offset` is measured in codepoints.  The returned `column` is a character
 # offset, not a codepoint offset.
-function convert_offset_to_line_from_lines(offset::Int, all_lines)
+function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_codepoint = 1
