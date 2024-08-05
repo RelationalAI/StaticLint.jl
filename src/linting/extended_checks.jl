@@ -190,6 +190,7 @@ struct Splatting_Extension <: RecommendationExtendedRule end
 struct UnreachableBranch_Extension <: ViolationExtendedRule end
 struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
+struct ReturnType_Extension <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -543,4 +544,13 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
     generic_check(t, x, "split_path(hole_variable)", "Usage of `RelPath` API method `split_path` is not allowed in this context.")
     generic_check(t, x, "drop_first(hole_variable)", "Usage of `RelPath` API method `drop_first` is not allowed in this context.")
     generic_check(t, x, "relpath_from_signature(hole_variable)", "Usage of method `relpath_from_signature` is not allowed in this context.")
+end
+
+
+function check(t::ReturnType_Extension, x::EXPR, markers::Dict{Symbol,String})
+    # haskey(markers, :filename) || return
+    # contains(markers[:filename], "src/Compiler/Front") || return
+
+    generic_check(t, x, "hole_variable(hole_variable_star)::hole_variable = hole_variable", "Return type are prohibited.")
+    generic_check(t, x, "function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", "Return type are prohibited.")
 end
