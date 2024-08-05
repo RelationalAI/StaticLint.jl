@@ -191,6 +191,7 @@ struct UnreachableBranch_Extension <: ViolationExtendedRule end
 struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct ReturnType_Extension <: ViolationExtendedRule end
+struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -546,11 +547,25 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
     generic_check(t, x, "relpath_from_signature(hole_variable)", "Usage of method `relpath_from_signature` is not allowed in this context.")
 end
 
-
 function check(t::ReturnType_Extension, x::EXPR, markers::Dict{Symbol,String})
     # haskey(markers, :filename) || return
     # contains(markers[:filename], "src/Compiler/Front") || return
 
     generic_check(t, x, "hole_variable(hole_variable_star)::hole_variable = hole_variable", "Return type are prohibited.")
     generic_check(t, x, "function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", "Return type are prohibited.")
+end
+
+function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
+    haskey(markers, :filename) || return
+    # In the front-end and in FFI, we are allowed to refer to `Shape`
+    contains(markers[:filename], "src/Compiler/Front") && return
+    contains(markers[:filename], "src/Compiler/front2back.jl") && return
+    contains(markers[:filename], "src/FFI") && return
+
+    generic_check(t, x, "shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
+    generic_check(t, x, "Front.shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
+    generic_check(t, x, "shape_splat(hole_variable_star)", "Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
+    generic_check(t, x, "Front.shape_splat(hole_variable_star)", "Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
+    generic_check(t, x, "ffi_shape_term(hole_variable_star)", "Usage of `ffi_shape_term` is not allowed outside of the Front-end Compiler and FFI.")
+    generic_check(t, x, "Shape", "Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.")
 end

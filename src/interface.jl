@@ -2,11 +2,11 @@ using Dates
 using JSON3
 
 mutable struct LintResult
-    files_count::Int64
-    violations_count::Int64
-    recommendations_count::Int64
+    files_count::Integer
+    violations_count::Integer
+    recommendations_count::Integer
     linted_files::Vector{String}
-    printout_count::Int64
+    printout_count::Integer
 
     LintResult(a, b, c, d, e) = new(a, b, c, d, e)
 end
@@ -138,7 +138,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     end
 end
 
-global global_server = setup_server()
+global global_server = nothing
 const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
@@ -150,48 +150,76 @@ function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filen
     return convert_offset_to_line_from_lines(offset, all_lines)
 end
 
-function convert_offset_to_line(offset::Int, source::String)
+function convert_offset_to_line(offset::Integer, source::String)
     return convert_offset_to_line_from_lines(offset, split(source, "\n"))
 end
 
+# Return the lint next-line annotation, if there is one, at the end of `line`.
+# Return
+#   * `nothing`      if there is no `lint-disable-next-line` annotation.
+#   * ""::SubString  if the end of the line is "lint-disable-next-line".
+#   * s::SubString   if the end of the line is "lint-disable_next_line: $s"
+function annotation_for_next_line(line::AbstractString)
+    if endswith(line, "lint-disable-next-line")
+        return ""
+    end
+    # An annotation must be in a comment and not contain any `#` or `"` characters.
+    m = match(r"# lint-disable-next-line: *([^\"#]+)$", line)
+    return isnothing(m) ? nothing : m[1]
+end
 
-# Return a triple: (index_line, index_column, annotation)
-# annotation could be either nothing, "lint-disable-line", or
-# "lint-disable-line ERROR_MSG_TO_IGNORE"
+function annotation_for_this_line(line::AbstractString)
+    if endswith(line, "lint-disable-line")
+        return ""
+    end
+    # An annotation must be in a comment and not contain any `#` or `"` characters.
+    m = match(r"# lint-disable-line: *([^\"#]+)$", line)
+    return isnothing(m) ? nothing : m[1]
+end
+
+# Return a triple: (line::Int, column::Int, annotation::Option(String))
 #
-# Note: `offset` is measured in codepoints.  The returned `index_column` is a character
-# index (not a string index).
-function convert_offset_to_line_from_lines(offset::Int, all_lines)
+# `annotation` could be either `nothing`, "lint-disable-line", or
+# `"lint-disable-line: $ERROR_MSG_TO_IGNORE"`
+#
+# Note: `offset` is measured in codepoints.  The returned `column` is a character
+# offset, not a codepoint offset.
+function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     offset < 0 && throw(BoundsError("source", offset))
 
     current_codepoint = 1
-    annotation_previous_line = -1
-    annotation = nothing
-    current_annotation = nothing
-    for (index_line,line) in enumerate(all_lines)
-        if endswith(line, "lint-disable-next-line")
-            annotation_previous_line = index_line + 1
-            current_annotation = "lint-disable-line"
-        elseif contains(line, "lint-disable-next-line:")
-            annotation_previous_line = index_line + 1
-            msg_error = match(r".*:\s*(?<msg>.*)", line)[:msg]
-            current_annotation = "lint-disable-line $msg_error"
-        elseif endswith(line, "lint-disable-line")
-            annotation_previous_line = index_line
-            current_annotation = "lint-disable-line"
-        end
-
+    # In these annotations, "" means "lint-disable-line", a nonempty string `s` means
+    # "lint_disable_line: $s", and nothing means there's no applicable annotation.
+    prev_annotation::Union{Nothing,SubString} = nothing
+    this_annotation::Union{Nothing,SubString} = nothing
+    for (line_number, line) in enumerate(all_lines)
+        this_annotation = annotation_for_this_line(line)
+        # current_codepoint + sizeof(line) is possibly pointing at the newline that isn't
+        # actually stored in `line`.
         if offset in current_codepoint:(current_codepoint + sizeof(line))
-            if endswith(line, "lint-disable-line") || (index_line == annotation_previous_line)
-                annotation = current_annotation
+            index_in_line = offset - current_codepoint + 1 # possibly off the end by 1.
+            if !isnothing(this_annotation)
+                annotation = this_annotation
+            elseif !isnothing(prev_annotation)
+                annotation = prev_annotation
             else
                 annotation = nothing
             end
-            result = index_line, length(line, 1, (offset - current_codepoint + 1)), annotation
-            annotation = nothing
-            return result
+            if !isnothing(annotation)
+                if annotation == ""
+                    annotation = "lint-disable-line"
+                else
+                    annotation = "lint-disable-line: " * annotation
+                end
+            end
+            if index_in_line == sizeof(line) + 1
+                return line_number, length(line)+1, annotation
+            else
+                return line_number, length(line, 1, index_in_line), annotation
+            end
         end
-        current_codepoint += sizeof(line) + 1 #1 is for the newline.
+        prev_annotation = annotation_for_next_line(line)
+        current_codepoint += sizeof(line) + 1 # 1 is for the newline
     end
     throw(BoundsError("source", offset))
 end
@@ -207,7 +235,8 @@ struct PlainFormat <: AbstractFormatter end
 # report is generated which contains Markdown links.
 # file_prefix_to_remove corresponds to a prefix files will be removed when generating the
 # report. This is useful because GitHub Action clones a repository in a folder of the same
-# name. In our case, GHA will create /home/runner/work/raicode/raicode
+# name. In our case, GHA will create /home/runner/work/raicode/raicode so we need to remove
+# one "raicode" from the fullname.
 struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
@@ -272,16 +301,12 @@ function filter_and_print_hint(
                 return false
             end
 
-            is_specific_disable_annotation =
-                startswith(annotation_line, "lint-disable-line") &&
-                length(annotation_line) > length("lint-disable-line")
-
-            v = match(r"lint-disable-line (?<msg>.*)", annotation_line)
+            v = match(r"lint-disable-line: (?<msg>.*)$", annotation_line)
             msg = isnothing(v) ? nothing : v[:msg]
 
             # if it is specific, and the reported error is different from the provided error
             # then we report the error
-            if is_specific_disable_annotation && startswith(cleaned_hint, msg)
+            if !isnothing(msg) && startswith(cleaned_hint, msg)
                 return false
             end
 
@@ -291,8 +316,9 @@ function filter_and_print_hint(
             end
             return true
         end
-    catch
-        @error "Cannot retreive offset=$offset in file $filename"
+    catch e
+        @assert e isa BoundsError
+        @error "Cannot retrieve offset=$offset in file $filename"
     end
     return false
 end
@@ -341,8 +367,8 @@ end
 function print_summary(
     ::PlainFormat,
     io::IO,
-    count_violations::Int,
-    count_recommendations::Int
+    count_violations::Integer,
+    count_recommendations::Integer
 )
     nb_hints = count_violations + count_recommendations
     if iszero(nb_hints)
@@ -363,14 +389,25 @@ end
 print_header(::MarkdownFormat, io::IO, rootpath::String) = nothing
 print_footer(::MarkdownFormat, io::IO) = nothing
 
+# Remove a leading '/' if the file starts with one. This is necessary to build the URL
+# Remove the prefix mentioned in the Markdown from the file_name
+function remove_prefix_from_filename(file_name::String, file_prefix_to_remove::String)
+    corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
+    if startswith(corrected_file_name, file_prefix_to_remove)
+        corrected_file_name = corrected_file_name[length(file_prefix_to_remove)+1:end]
+    end
+    return corrected_file_name
+end
+
+function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
+    return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
+end
+
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
         line_number = split(coordinates, [' ', ','])[2]
-        file_name = last(split(hint, " "))
-        corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
-        if startswith(corrected_file_name, format.file_prefix_to_remove)
-            corrected_file_name = corrected_file_name[length(format.file_prefix_to_remove)+1:end]
-        end
+        file_name = string(last(split(hint, " ")))
+        corrected_file_name = remove_prefix_from_filename(file_name, format)
         extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
         print(io, " - **$extended_coordinates** $hint\n")
     else
@@ -378,7 +415,13 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
 end
 
-print_summary(::MarkdownFormat, io::IO, count_violations::Int, count_recommendations::Int) = nothing
+print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
+
+does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
+function initialize_file_server()
+    StaticLint.global_server = setup_server()
+    return StaticLint.global_server
+end
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
@@ -400,6 +443,11 @@ function run_lint(
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
+    # If no server is defined, then we define it.
+    if does_file_server_need_to_be_initialized()
+        server = initialize_file_server()
+    end
+
     # If already linted, then we merely exit
     rootpath in result.linted_files && return result
 
@@ -507,9 +555,9 @@ end
 function print_datadog_report(
     json_output::IO,
     report_as_string::String,
-    files_count::Int64,
-    violation_count::Int64,
-    recommandation_count::Int64,
+    files_count::Integer,
+    violation_count::Integer,
+    recommandation_count::Integer,
 )
     event = Dict(
         :source => "StaticLint",
@@ -594,7 +642,7 @@ function generate_report(
     # If analyze_all_file_found_locally is set to true, we discard all the provided files
     # and analyze everything accessible from "."
     if analyze_all_file_found_locally
-        julia_filenames = ["."]
+        julia_filenames = [pwd()]
     end
 
     open(output_filename, "w") do output_io

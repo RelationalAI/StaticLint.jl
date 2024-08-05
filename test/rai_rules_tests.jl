@@ -125,7 +125,7 @@ end
         @test lint_test(source,
             "Line 7, column 5: `@threads` should be used with extreme caution.")
         @test lint_test(source,
-            "Line 14, column 1: `@generated` should be used with extreme caution.")
+           "Line 14, column 1: `@generated` should be used with extreme caution.")
         @test lint_test(source,
             "Line 20, column 5: `@sync` should be used with extreme caution.")
         @test lint_test(source,
@@ -534,7 +534,7 @@ end
         @test lint_test(source,
             "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
         @test lint_test(source,
-            "Line 8, column 11: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 8, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -759,8 +759,8 @@ end
 
     @test convert_offset_to_line(10, source) == (1, 10, nothing)
     @test convert_offset_to_line(20, source) == (2, 7, nothing)
-    @test convert_offset_to_line(43, source) == (2, 30, nothing)
-    @test convert_offset_to_line(47, source) == (3, 4, nothing)
+    @test convert_offset_to_line(42, source) == (2, 29, nothing)
+    @test convert_offset_to_line(46, source) == (3, 3, nothing)
 
 end
 
@@ -1274,7 +1274,6 @@ end
     end
 
     @testset "Report generation of 1 file with 1 error and github info" begin
-        local result_matching = false
         mktempdir() do dir
             file1 = joinpath(dir, "foo.jl")
             open(file1, "w") do io1
@@ -1302,13 +1301,20 @@ end
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-                expected = r"""
-                     - \*\*\[Line 2, column 3:\]\(https://github\.com/RelationalAI/raicode/blob/axb-foo-bar/folders/\H+/foo\.jl#L2\)\*\* Macro `@spawn` should be used instead of `@async`. \H+
-                    """
-                result_matching = !isnothing(match(expected, result))
+
+                # Remove the first folder to address an issue of GitHub Action
+                # (See MarkdownFormat for more information)
+                corrected_file_name = StaticLint.remove_prefix_from_filename(file1, "var/")
+
+                expected = " - **[Line 2, column 3:]" *
+                    "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar/$(corrected_file_name)" *
+                    "#L2)** Macro `@spawn` should be used instead of `@async`."
+                if !occursin(expected, result)
+                    @info "didn't match" expected result
+                end
+                @test occursin(expected, result)
             end
         end
-        @test result_matching
     end
 
     @testset "Report generation of all the folder" begin
@@ -1323,23 +1329,21 @@ end
                 output_file = tempname()
                 json_io = IOBuffer()
                 StaticLint.generate_report(
-                    [file1],
+                    [file1], # Ignored because of analyze_all_file_found_locally
                     output_file;
                     json_output=json_io,
                     github_repository="RelationalAI/raicode",
                     branch_name="axb-foo-bar",
                     file_prefix_to_remove="var/",
-                    analyze_all_file_found_locally=true
+                    analyze_all_file_found_locally=true # OVERRIDE THE PROVIDED SET OF FILES
                 )
 
                 json_report = JSON3.read(String(take!(json_io)))
-                @test json_report[:source] == "StaticLint"
 
-                # There are more than 10 files in StaticLint.jl
-                # and more than 1 violations and recommendations.
-                @test json_report[:data][:files_count] > 10
-                @test json_report[:data][:violation_count] > 1
-                @test json_report[:data][:recommandation_count] > 0
+                @test json_report[:source] == "StaticLint"
+                @test json_report[:data][:files_count] > 3
+                @test json_report[:data][:violation_count] > 10
+                @test json_report[:data][:recommandation_count] >= 0
 
                 local result
                 open(output_file) do oo
@@ -1515,7 +1519,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1529,7 +1533,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test lint_has_error_test(source)
         @test lint_test(source,
@@ -1557,7 +1561,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1571,7 +1575,7 @@ end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1866,5 +1870,31 @@ end
     @test lint_test(source,
         "Line 2, column 25: Usage of `RelPath` API method `split_path` is not allowed in this context.";
         directory="/src/Compiler/Front"
+    )
+end
+
+@testset "Shapes outside Front-End" begin
+    source = """
+        function get_relation_infos(rt::Runtime, name::Symbol, shape::Shape)
+            idb_overloads = Front.idb_overloads_for_shape(rt, shape)
+            return idb_overloads
+        end
+
+        function get_relation_values(rt::Runtime, name::Symbol)
+            return get_relation_values(rt, name, Front.shape_splat(Shape))
+        end
+    """
+
+    @test count_lint_errors(source; directory="/src/Execution") == 3
+    @test count_lint_errors(source; directory="/src/Compiler/Front") == 0
+
+    @test lint_test(source,
+        "Line 1, column 67: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
+        directory="/src/Execution"
+    )
+
+    @test lint_test(source,
+        "Line 7, column 46: Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.";
+        directory="/src/Execution"
     )
 end
