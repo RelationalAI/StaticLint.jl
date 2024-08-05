@@ -1301,8 +1301,13 @@ end
                 open(output_file) do oo
                     result = read(oo, String)
                 end
-                expected = "- **[Line 2, column 3:]" * 
-                    "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar$(dir)/foo.jl" *
+
+                # Remove the first folder to address an issue of GitHub Action
+                # (See MarkdownFormat for more information)
+                corrected_file_name = StaticLint.remove_prefix_from_filename(file1, "var/")
+
+                expected = " - **[Line 2, column 3:]" *
+                    "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar/$(corrected_file_name)" *
                     "#L2)** Macro `@spawn` should be used instead of `@async`."
                 if !occursin(expected, result)
                     @info "didn't match" expected result

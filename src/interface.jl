@@ -235,7 +235,8 @@ struct PlainFormat <: AbstractFormatter end
 # report is generated which contains Markdown links.
 # file_prefix_to_remove corresponds to a prefix files will be removed when generating the
 # report. This is useful because GitHub Action clones a repository in a folder of the same
-# name. In our case, GHA will create /home/runner/work/raicode/raicode
+# name. In our case, GHA will create /home/runner/work/raicode/raicode so we need to remove
+# one "raicode" from the fullname.
 struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
@@ -388,14 +389,25 @@ end
 print_header(::MarkdownFormat, io::IO, rootpath::String) = nothing
 print_footer(::MarkdownFormat, io::IO) = nothing
 
+# Remove a leading '/' if the file starts with one. This is necessary to build the URL
+# Remove the prefix mentioned in the Markdown from the file_name
+function remove_prefix_from_filename(file_name::String, file_prefix_to_remove::String)
+    corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
+    if startswith(corrected_file_name, file_prefix_to_remove)
+        corrected_file_name = corrected_file_name[length(file_prefix_to_remove)+1:end]
+    end
+    return corrected_file_name
+end
+
+function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
+    return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
+end
+
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
         line_number = split(coordinates, [' ', ','])[2]
-        file_name = last(split(hint, " "))
-        corrected_file_name = first(file_name) == '/' ? file_name[2:end] : file_name
-        if startswith(corrected_file_name, format.file_prefix_to_remove)
-            corrected_file_name = corrected_file_name[length(format.file_prefix_to_remove)+1:end]
-        end
+        file_name = string(last(split(hint, " ")))
+        corrected_file_name = remove_prefix_from_filename(file_name, format)
         extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
         print(io, " - **$extended_coordinates** $hint\n")
     else
