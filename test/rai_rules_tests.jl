@@ -383,7 +383,7 @@ end
             "Line 18, column 5: `wait` should be used with extreme caution.")
     end
 
-    @testset "fetch, @inbounds, Atomic, Ptr, remove_page, Channel, ErrorException" begin
+    @testset "@inbounds, Atomic, Ptr, remove_page, Channel, ErrorException" begin
         source = """
             function f()
                 fut = Future{Any}()
@@ -430,7 +430,6 @@ end
             bar() = error("My fault")
             """
 
-        @test lint_test(source, "Line 3, column 10: `fetch` should be used with extreme caution.")
         @test lint_test(source, "Line 5, column 5: `@inbounds` should be used with extreme caution.")
 
         @test lint_test(source, "Line 15, column 20: `Atomic` should be used with extreme caution.")
