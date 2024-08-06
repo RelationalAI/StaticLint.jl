@@ -651,7 +651,7 @@ function generate_report(
             (https://github.com/RelationalAI/StaticLint.jl). \
             🫵[Want to contribute?](https://github.com/RelationalAI/StaticLint.jl/blob/main/README.md#contributing-to-staticlintjl)🫵 \
             [RelationalAI Style Guide for Julia](https://github.com/RelationalAI/RAIStyle)**\n\
-            Report creation time (UTC): ($(now()))")
+            Report creation time (UTC): ($(now(UTC)))")
 
 
         formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
