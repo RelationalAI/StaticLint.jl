@@ -1747,6 +1747,8 @@ end
 end
 
 @testset "Checking string interpolation" begin
+
+    # ERRORS
     source_with_error = raw"""
     function f(conf)
         @info "($conf.container.baseurl)"
@@ -1765,6 +1767,43 @@ end
     end
     """
 
+    source_with_error4 = raw"""
+    function f(conf)
+        @info "this string contains an error $conf .container.baseurl indeed!"
+    end
+    """
+
+    source_with_error5 = raw"""
+    function f(engine_name)
+        @info "Issuing delete request for engine $engine_name..."
+    end
+    """
+
+    source_with_error6 = raw"""
+    function f()
+        Source("model/$name", "model/$name",  read(joinpath(@__DIR__, "models", "$name.rel"), String))
+    end
+    """
+
+    source_with_error7 = raw"""
+    function f()
+        path = "$dir/$name.csv"
+    end
+    """
+
+    @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error2, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error3, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error4, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error5, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+
+    @test lint_test(source_with_error6, raw"Line 2, column 12: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error6, raw"Line 2, column 27: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error6, raw"Line 2, column 77: Suspicious string interpolation, use $(x) instead of $x.")
+
+    @test lint_test(source_with_error7, raw"Line 2, column 12: Suspicious string interpolation, use $(x) instead of $x.")
+
+    # NO ERROR
     source_without_error = raw"""
     function f(conf)
         @info "$(conf.container.baseurl)"
@@ -1778,49 +1817,14 @@ end
     """
 
     source_without_error3 = raw"""
-    function f(conf)
-        @info "this string contains an error $conf .container.baseurl indeed!"
+    function f()
+        _profile_filename = "profile-$(timestamp).pb.gz"
     end
     """
-
-    source_without_error4 = raw"""
-    function f(engine_name)
-        @info "Issuing delete request for engine $engine_name..."
-    end
-    """
-    @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
-    @test lint_test(source_with_error2, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
-    @test lint_test(source_with_error3, raw"Line 2, column 11: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
 
     @test count_lint_errors(source_without_error) == 0
     @test count_lint_errors(source_without_error2) == 0
     @test count_lint_errors(source_without_error3) == 0
-    @test count_lint_errors(source_without_error4) == 0
-
-
-    # FALSE POSITIVE
-    # StaticLint reports false positive, ie., a rule violation that is not an issue
-    false_positive1 = raw"""
-    function f()
-        profile_filename = "profile-$(timestamp).pb.gz"
-    end
-    """
-
-    false_positive2 = raw"""
-    function f()
-        Source("model/$name", "model/$name",  read(joinpath(@__DIR__, "models", "$name.rel"), String))
-    end
-    """
-    false_positive3 = raw"""
-    function f()
-        path = "$dir/$name.csv"
-    end
-    """
-
-    @test lint_test(false_positive1, raw"Line 2, column 24: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
-    @test lint_test(false_positive2, raw"Line 2, column 77: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
-    @test lint_test(false_positive3, raw"Line 2, column 12: Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c).")
-
 end
 
 @testset "Arithmetic LintResult" begin
