@@ -498,38 +498,20 @@ function check(t::UnreachableBranch_Extension, x::EXPR)
         "Unreachable branch.")
 end
 
-
-# Argument is now a CSTParser string
-# function check_string(x::EXPR)
-#     @assert x.head == :string
-
-#     msg_error = "Suspicious string interpolation."
-#     # We iterate over the arguments of the CST String to check for STRING: (
-#     # if we find one, this means the string was incorrectly interpolated
-#     length(x.args) == 3 &&
-#     x.args[1].head == :STRING && x.args[1].val == "(" &&
-#     x.args[2].head == :IDENTIFIER &&
-#     x.args[3].head == :STRING && !isnothing(match(r"^\.\H+", x.args[3].val)) &&
-#     seterror!(x, msg_error)
-
-# end
-
-
 function check(t::StringInterpolation_Extension, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
-    msg_error = raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."
+    msg_error = raw"Suspicious string interpolation, use $(x) instead of $x."
     check_for_recommendation(typeof(t), msg_error)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
 
-    for index in 1:(length(x.args)-1)
-        x.args[index].head == :IDENTIFIER &&
-        x.args[index+1].head == :STRING &&
-        !isnothing(match(r"^\.[a-z,A-Z]+", x.args[index+1].val)) &&
-        seterror!(x, msg_error)
-    end
+    # The number of interpolations is the same than $ in trivia and arguments
+    dollars_count = length(filter(q->q.head == :OPERATOR && q.val == raw"$", x.trivia))
+
+    open_parent_count = length(filter(q->q.head == :LPAREN, x.trivia))
+    open_parent_count != dollars_count && seterror!(x, msg_error)
 end
 
 function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
