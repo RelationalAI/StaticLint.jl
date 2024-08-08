@@ -208,7 +208,7 @@ const error_msgs = Dict{String, String}()
 function reset_recommentation_dict!(d::Dict{String, Bool})
     # Violations
     d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
-    d[raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."] = false
+    d[raw"Use $(x) instead of $x"] = false
 end
 
 function initialize_recommentation_dict()
@@ -311,8 +311,9 @@ function check(t::Finalizer_Extention, x::EXPR)
 end
 
 function check(t::Async_Extention, x::EXPR)
-    generic_check(t, x, "@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
-    generic_check(t, x, "Threads.@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
+    msg = "Use `@spawn` instead of `@async`."
+    generic_check(t, x, "@async hole_variable", msg)
+    generic_check(t, x, "Threads.@async hole_variable", msg)
 end
 
 check(t::Ccall_Extention, x::EXPR) = generic_check(t, x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "`ccall` should be used with extreme caution.")
@@ -435,7 +436,7 @@ function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
 end
 
 function check(t::In_Extension, x::EXPR)
-    msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`."
+    msg = "Use `tin(item,collection)` instead of the Julia's `in` or `∈`."
     generic_check(t, x, "in(hole_variable,hole_variable)", msg)
     generic_check(t, x, "hole_variable in hole_variable", msg)
 
@@ -444,12 +445,12 @@ function check(t::In_Extension, x::EXPR)
 end
 
 function check(t::HasKey_Extension, x::EXPR)
-    msg = "It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`."
+    msg = "Use `thaskey(dict,key)` instead of the Julia's `haskey`."
     generic_check(t, x, "haskey(hole_variable,hole_variable)", msg)
 end
 
 function check(t::Equal_Extension, x::EXPR)
-    msg = "It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`."
+    msg = "Use `tequal(dict,key)` instead of the Julia's `equal`."
     generic_check(t, x, "equal(hole_variable,hole_variable)", msg)
 end
 
@@ -502,7 +503,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
-    msg_error = raw"Suspicious string interpolation, use $(x) instead of $x."
+    msg_error = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
     check_for_recommendation(typeof(t), msg_error)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
