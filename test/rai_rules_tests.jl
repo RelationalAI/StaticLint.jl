@@ -60,7 +60,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: Macro `@spawn` should be used instead of `@async`.")
+            "Line 2, column 5: Use `@spawn` instead of `@async`.")
     end
 
     @testset "@async 02" begin
@@ -71,7 +71,7 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 5: Macro `@spawn` should be used instead of `@async`.")
+            "Line 2, column 5: Use `@spawn` instead of `@async`.")
     end
 
     @testset "@cfunction" begin
@@ -521,19 +521,19 @@ end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
+            "Line 2, column 9: Use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
-            "Line 3, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in`")
+            "Line 3, column 9: Use `tin(item,collection)` instead of the Julia's `in`")
         @test lint_test(source,
-            "Line 4, column 9: It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`.")
+            "Line 4, column 9: Use `tequal(dict,key)` instead of the Julia's `equal`.")
         @test lint_test(source,
-            "Line 5, column 9: It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`.")
+            "Line 5, column 9: Use `thaskey(dict,key)` instead of the Julia's `haskey`.")
         @test lint_test(source,
             "Line 6, column 9: `uv_` functions should be used with extreme caution.")
         @test lint_test(source,
-            "Line 7, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 7, column 9: Use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
         @test lint_test(source,
-            "Line 8, column 9: It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
+            "Line 8, column 9: Use `tin(item,collection)` instead of the Julia's `in` or `∈`.")
     end
 
     @testset "Splatting" begin
@@ -952,8 +952,8 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
@@ -996,7 +996,7 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
 
                         <details>
@@ -1051,8 +1051,8 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
 
                         <details>
                         <summary>For PR Reviewer \(2\)</summary>
@@ -1112,8 +1112,8 @@ end
                         ## Static code analyzer report
                         \*\*Output of the \[StaticLint\.jl code analyzer\]\(https://github\.com/RelationalAI/StaticLint\.jl\).+\*\*
                         Report creation time \(UTC\): \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
-                         - \*\*Line 2, column 3:\*\* Macro `@spawn` should be used instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
+                         - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
 
                         <details>
                         <summary>For PR Reviewer \(2\)</summary>
@@ -1307,7 +1307,7 @@ end
 
                 expected = " - **[Line 2, column 3:]" *
                     "(https://github.com/RelationalAI/raicode/blob/axb-foo-bar/$(corrected_file_name)" *
-                    "#L2)** Macro `@spawn` should be used instead of `@async`."
+                    "#L2)** Use `@spawn` instead of `@async`."
                 if !occursin(expected, result)
                     @info "didn't match" expected result
                 end
@@ -1512,13 +1512,13 @@ end
     @testset "Locally disabling rule 01" begin
         source = """
         function f()
-            # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+            # lint-disable-next-line: Use `@spawn` instead of `@async`.
             @async 1 + 1
         end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(91, source_lines) == (3, 14, "lint-disable-line: Use `@spawn` instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1526,13 +1526,13 @@ end
     @testset "Locally disabling rule 02" begin
         source = """
         function f()
-            # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+            # lint-disable-next-line: Use `@spawn` instead of `@async`.
             @async unsafe_foo(12)
         end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 1, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(91, source_lines) == (3, 14, "lint-disable-line: Use `@spawn` instead of `@async`.")
 
         @test lint_has_error_test(source)
         @test lint_test(source,
@@ -1548,19 +1548,19 @@ end
         """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 3, column 5: Macro `@spawn` should be used instead of `@async`.")
+            "Line 3, column 5: Use `@spawn` instead of `@async`.")
     end
 
     @testset "Locally disabling rule 04" begin
         source = """
         function f()
-            # lint-disable-next-line:Macro `@spawn` should be used instead of `@async`.
+            # lint-disable-next-line:Use `@spawn` instead of `@async`.
             @async 1 + 1
         end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(95, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(91, source_lines) == (3, 15, "lint-disable-line: Use `@spawn` instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1568,13 +1568,13 @@ end
     @testset "Locally disabling rule 05" begin
         source = """
         function f()
-            # lint-disable-next-line:  Macro `@spawn` should be used instead of `@async`.
+            # lint-disable-next-line:  Use `@spawn` instead of `@async`.
             @async 1 + 1
         end
         """
         source_lines = split(source, "\n")
         @test convert_offset_to_line_from_lines(30, source_lines) == (2, 17, nothing)
-        @test convert_offset_to_line_from_lines(97, source_lines) == (3, 2, "lint-disable-line: Macro `@spawn` should be used instead of `@async`.")
+        @test convert_offset_to_line_from_lines(91, source_lines) == (3, 13, "lint-disable-line: Use `@spawn` instead of `@async`.")
 
         @test !lint_has_error_test(source)
     end
@@ -1694,10 +1694,10 @@ end
     io=IOBuffer()
     run_lint_on_text(source; io)
 
-    @test !rule_is_recommendation("Macro `@spawn` should be used instead of `@async`.")
-    @test !rule_is_recommendation("Macro `@spawn`")
-    @test  rule_is_violation("Macro `@spawn` should be used instead of `@async`.")
-    @test  rule_is_violation("Macro `@spawn`")
+    @test !rule_is_recommendation("Use `@spawn` instead of `@async`.")
+    @test !rule_is_recommendation("Use `@spawn`")
+    @test  rule_is_violation("Use `@spawn` instead of `@async`.")
+    @test  rule_is_violation("Use `@spawn`")
     @test  rule_is_recommendation("`@lock` should be used with extreme caution.")
     @test  rule_is_recommendation("`@lock` ")
     @test !rule_is_violation("`@lock` should be used with extreme caution.")
@@ -1708,10 +1708,10 @@ end
 
     @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
         "`@lock` should be used with extreme caution."
-    @test StaticLint.retrieve_full_msg_from_prefix("Macro `@spawn`") ==
-        "Macro `@spawn` should be used instead of `@async`."
+    @test StaticLint.retrieve_full_msg_from_prefix("Use `@spawn`") ==
+        "Use `@spawn` instead of `@async`."
 
-    msg = "Macro `@spawn` should be used instead of `@async`."
+    msg = "Use `@spawn` instead of `@async`."
     @test StaticLint.retrieve_full_msg_from_prefix(msg) == msg
 end
 
@@ -1738,7 +1738,7 @@ end
     result = String(take!(io))
     expected = r"""
     ---------- \H+
-    Line 2, column 5: Macro `@spawn` should be used instead of `@async`\. \H+
+    Line 2, column 5: Use `@spawn` instead of `@async`\. \H+
     Line 5, column 5: `@lock` should be used with extreme caution\. \H+
     2 potential threats are found: 1 violation and 1 recommendation
     ----------
@@ -1791,17 +1791,17 @@ end
     end
     """
 
-    @test lint_test(source_with_error, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error2, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error3, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error4, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error5, raw"Line 2, column 11: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error, raw"Line 2, column 11: Use $(x) instead of $x ")
+    @test lint_test(source_with_error2, raw"Line 2, column 11: Use $(x) instead of $x ")
+    @test lint_test(source_with_error3, raw"Line 2, column 11: Use $(x) instead of $x ")
+    @test lint_test(source_with_error4, raw"Line 2, column 11: Use $(x) instead of $x ")
+    @test lint_test(source_with_error5, raw"Line 2, column 11: Use $(x) instead of $x ")
 
-    @test lint_test(source_with_error6, raw"Line 2, column 12: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error6, raw"Line 2, column 27: Suspicious string interpolation, use $(x) instead of $x.")
-    @test lint_test(source_with_error6, raw"Line 2, column 77: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error6, raw"Line 2, column 12: Use $(x) instead of $x ")
+    @test lint_test(source_with_error6, raw"Line 2, column 27: Use $(x) instead of $x ")
+    @test lint_test(source_with_error6, raw"Line 2, column 77: Use $(x) instead of $x ")
 
-    @test lint_test(source_with_error7, raw"Line 2, column 12: Suspicious string interpolation, use $(x) instead of $x.")
+    @test lint_test(source_with_error7, raw"Line 2, column 12: Use $(x) instead of $x ")
 
     # NO ERROR
     source_without_error = raw"""

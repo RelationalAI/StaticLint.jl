@@ -12,9 +12,9 @@ There are several ways to use StaticLint.jl. Here are a few usage examples:
 
 ```Julia
 StaticLint.run_lint_on_text("function f() @async 1 + 2 end ");
----------- /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_m34buxG5sl.jl
-Line 1, column 14: Macro `@spawn` should be used instead of `@async`. at offset 13 of /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_m34buxG5sl.jl
-1 potential threat is found
+---------- /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_1QHeJ2vm1U.jl
+Line 1, column 14: Use `@spawn` instead of `@async`. /var/folders/nz/1c4rst196ws_18tjtfl0yb980000gn/T/jl_1QHeJ2vm1U.jl
+1 potential threat is found: 1 violation and 0 recommendation
 ----------
 ```
 
@@ -63,7 +63,7 @@ Adding a new rule is easy. Only the file `src/linting/extended_checks.jl` has to
 Here is an example of a `check`:
 
 ```Julia
-check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
+check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Use `@spawn` instead of `@async`.")
 ```
 
 The `generic_check` function takes as a second parameter the expression to be searched. The template string `"@async hole_variable"` means that the expression `x` will be matched against the template. The pseudo variable `hole_variable` matches everything. In case you want to match any arbitrary number of arguments, you can use `hole_variable_star` (look at the test for concrete examples).
@@ -122,12 +122,12 @@ the message that has to be ignored. Consider this example:
 
 ```Julia
 function f()
-    # lint-disable-next-line: Macro `@spawn` should be used instead of `@async`.
+    # lint-disable-next-line: Use `@spawn` instead of `@async`.
     @async 1 + 1
 end
 ```
 
-The instruction `@async 1 + 1` raises the error: Macro `@spawn` should be used instead of `@async`.
+The instruction `@async 1 + 1` raises the error: Use `@spawn` instead of `@async`.
 Providing this error msg to the comment `lint-disable-next-line:` disabled it.
 
 Note that it is not necessary to have the full message. The beginning of it is enough. As
@@ -135,7 +135,7 @@ such, the code above is equivalent to:
 
 ```Julia
 function f()
-    # lint-disable-next-line: Macro `@spawn` should be used
+    # lint-disable-next-line: Use `@spawn` instead
     @async 1 + 1
 end
 ```
