@@ -684,6 +684,12 @@ end
     @test !t("1 + 2", "\"LINT_STRING\"")
     @test t("\"1 + 2\"", "\"LINT_STRING\"")
 
+    # LINT_STRING_WITH_INTERPOLATION
+    @test !t("\"1 + 2\"", "\"LINT_STRING_WITH_INTERPOLATION\"")
+    @test t(raw"\"foo $x\"", "\"LINT_STRING_WITH_INTERPOLATION\"")
+    @test t(raw"@warnv_safe_to_log 1 \"logged! $(a_variable)\"", "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"")
+    @test !t(raw"@warnv_safe_to_log 1 \"logged! (a_variable)\"", "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"")
+
     # @test t(raw"\"($x)\"", "\"LINT_STRING\"")
 
 end
@@ -1900,4 +1906,34 @@ end
         "Line 7, column 46: Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.";
         directory="/src/Execution"
     )
+end
+
+@testset "Check on @warnv_safe_to_log" begin
+    source = raw"""
+    function pm_check_mutable_pages(bytes::Int)
+        pm = PAGER_MONITOR
+
+        max_pages = (@atomic pm.mutable_pages_running_max)
+        max_bytes = (@atomic pm.mutable_bytes_running_max)
+        if max_bytes >= bytes
+            @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
+                detected: $max_pages pages weighting $max_bytes bytes"
+
+            @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
+                detected: $max_pages pages weighting $max_bytes bytes"
+
+            @ensure @warnv_safe_to_log 0 "no interpolation"
+
+            mutable_report = pm_generate_mutable_pages_report!()
+            if !isnothing(mutable_report)
+                @warnv_safe_to_log 0 mutable_report
+            end
+            return false
+        end
+
+        return true
+    end
+    """
+    @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
+    @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
 end

@@ -30,6 +30,10 @@ function is_hole_string(x::CSTParser.EXPR)
     return x.head == :STRING && startswith(x.val, "LINT_STRING")
 end
 
+function is_hole_string_with_interpolation(x::CSTParser.EXPR)
+    return x.head == :STRING && startswith(x.val, "LINT_STRING_WITH_INTERPOLATION")
+end
+
 function is_hole_variable(x::CSTParser.EXPR)
     return x.head == :IDENTIFIER && startswith(x.val, "hole_variable")
 end
@@ -79,6 +83,22 @@ function raw_comp(
 
     # If one of element to be compared is a hole, then we have a match!
     (is_hole_variable(x) || is_hole_variable(y)) && return true
+
+    if is_hole_string_with_interpolation(x)
+        if y.head == :string && !isnothing(y.args)
+            return true
+        else
+            return false
+        end
+    end
+    if is_hole_string_with_interpolation(y)
+        if x.head == :string && !isnothing(x.args)
+            return true
+        else
+            return false
+        end
+    end
+
     (is_hole_string(x) && y.head == :STRING) && return true
     (is_hole_string(y) && x.head == :STRING) && return true
 
@@ -190,6 +210,7 @@ struct UnreachableBranch_Extension <: ViolationExtendedRule end
 struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
+struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -542,4 +563,8 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     generic_check(t, x, "Front.shape_splat(hole_variable_star)", "Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "ffi_shape_term(hole_variable_star)", "Usage of `ffi_shape_term` is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "Shape", "Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.")
+end
+
+function check(t::InterpolationInSafeLog_Extension, x::EXPR)
+    generic_check(t, x, "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"", "Safe warning log has interpolation.")
 end
