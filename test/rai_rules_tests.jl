@@ -1937,3 +1937,15 @@ end
     @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
     @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
 end
+
+@testset "Static thread" begin
+    source = raw"""
+    function f()
+        Threads.@threads :static for i in 1:10
+            println("hello $(i)")
+        end
+    end
+    """
+    @test count_lint_errors(source) == 1
+    @test lint_test(source, "Line 2, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`. Static threads must not be used as generated tasks will not be able to migrate across threads.")
+end
