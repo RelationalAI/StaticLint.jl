@@ -192,7 +192,7 @@ struct Inbounds_Extension <: RecommendationExtendedRule end
 struct Atomic_Extension <: RecommendationExtendedRule end
 struct Ptr_Extension <: RecommendationExtendedRule end
 struct ArrayWithNoType_Extension <: ViolationExtendedRule end
-struct Threads_Extension <: ViolationExtendedRule end
+struct Threads_Extension <: RecommendationExtendedRule end
 struct Generated_Extension <: RecommendationExtendedRule end
 struct Sync_Extension <: RecommendationExtendedRule end
 struct RemovePage_Extension <: ViolationExtendedRule end
