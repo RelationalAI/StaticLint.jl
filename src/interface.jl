@@ -417,7 +417,7 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     end
     # echo "::error file=app.js,line=1,col=5,endColumn=7::Missing semicolon"
     # NEED TO ADD COLUMN
-    print(stdout, "::error file=$(corrected_file_name),line=$(line_number)::hint")
+    println(stdout, "::error file=$(corrected_file_name),line=$(line_number)::$(hint)")
 end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
