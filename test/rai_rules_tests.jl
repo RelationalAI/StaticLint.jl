@@ -1937,3 +1937,23 @@ end
     @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
     @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
 end
+
+@testset "Use of static threads" begin
+    source = raw"""
+    function f()
+        Threads.@threads :static for _ in 1:10
+            println("foo")
+        end
+
+        @threads :static for _ in 1:10
+            println("foo")
+        end
+
+        Threads.@threads :dynamic for _ in 1:10
+            println("foo")
+        end
+    end
+    """
+    @test lint_test(source, "Line 2, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
+    @test lint_test(source, "Line 6, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
+end

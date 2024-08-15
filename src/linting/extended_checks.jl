@@ -211,6 +211,7 @@ struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
+struct UseOfStaticThreads <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -567,4 +568,10 @@ end
 
 function check(t::InterpolationInSafeLog_Extension, x::EXPR)
     generic_check(t, x, "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"", "Safe warning log has interpolation.")
+end
+
+function check(t::UseOfStaticThreads, x::EXPR)
+    msg = "Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`. Static threads must not be used as generated tasks will not be able to migrate across threads."
+    generic_check(t, x, "@threads :static hole_variable_star", msg)
+    generic_check(t, x, "Threads.@threads :static hole_variable_star", msg)
 end
