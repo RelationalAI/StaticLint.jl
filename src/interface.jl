@@ -403,16 +403,21 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
 end
 
+# Essential function to print a lint report using the Markdown
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
+    line_number = split(coordinates, [' ', ','])[2]
+    file_name = string(last(split(hint, " ")))
+    corrected_file_name = remove_prefix_from_filename(file_name, format)
+
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        line_number = split(coordinates, [' ', ','])[2]
-        file_name = string(last(split(hint, " ")))
-        corrected_file_name = remove_prefix_from_filename(file_name, format)
         extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
-        print(io, " - **$extended_coordinates** $hint\n")
+        print(io, " - **$(extended_coordinates)** $(hint)\n")
     else
-        print(io, " - **$coordinates** $hint\n")
+        print(io, " - **$(coordinates)** $(hint)\n")
     end
+    # echo "::error file=app.js,line=1,col=5,endColumn=7::Missing semicolon"
+    # NEED TO ADD COLUMN
+    print(stdout, "::error file=$(corrected_file_name),line=$(line_number)::hint")
 end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
@@ -607,8 +612,6 @@ the github action workflow to run Lint on master.
 
 When provided, `github_repository` and `branch_name` are used to have clickable links in
 the Markdown report.
-
-
 """
 function generate_report(
     filenames::Vector{String},
@@ -710,6 +713,8 @@ function generate_report(
     report_as_string = open(output_filename) do io read(io, String) end
     print_datadog_report(json_output, report_as_string, lint_result.files_count, lint_result.violations_count, lint_result.recommendations_count)
 
+    # If a json_filename was provided, we are writing the result in json_output.
+    # In that case, we need to close the stream at the end.
     if !isnothing(json_filename)
         close(json_output)
     end
