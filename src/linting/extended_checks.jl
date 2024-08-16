@@ -30,6 +30,10 @@ function is_hole_string(x::CSTParser.EXPR)
     return x.head == :STRING && startswith(x.val, "LINT_STRING")
 end
 
+function is_hole_string_with_interpolation(x::CSTParser.EXPR)
+    return x.head == :STRING && startswith(x.val, "LINT_STRING_WITH_INTERPOLATION")
+end
+
 function is_hole_variable(x::CSTParser.EXPR)
     return x.head == :IDENTIFIER && startswith(x.val, "hole_variable")
 end
@@ -79,6 +83,22 @@ function raw_comp(
 
     # If one of element to be compared is a hole, then we have a match!
     (is_hole_variable(x) || is_hole_variable(y)) && return true
+
+    if is_hole_string_with_interpolation(x)
+        if y.head == :string && !isnothing(y.args)
+            return true
+        else
+            return false
+        end
+    end
+    if is_hole_string_with_interpolation(y)
+        if x.head == :string && !isnothing(x.args)
+            return true
+        else
+            return false
+        end
+    end
+
     (is_hole_string(x) && y.head == :STRING) && return true
     (is_hole_string(y) && x.head == :STRING) && return true
 
@@ -168,12 +188,11 @@ struct Sleep_Extension <: RecommendationExtendedRule end
 struct Mmap_Extension <: RecommendationExtendedRule end
 struct Future_Extension <: RecommendationExtendedRule end
 struct Wait_Extension <: RecommendationExtendedRule end
-struct Fetch_Extension <: RecommendationExtendedRule end
 struct Inbounds_Extension <: RecommendationExtendedRule end
 struct Atomic_Extension <: RecommendationExtendedRule end
 struct Ptr_Extension <: RecommendationExtendedRule end
 struct ArrayWithNoType_Extension <: ViolationExtendedRule end
-struct Threads_Extension <: ViolationExtendedRule end
+struct Threads_Extension <: RecommendationExtendedRule end
 struct Generated_Extension <: RecommendationExtendedRule end
 struct Sync_Extension <: RecommendationExtendedRule end
 struct RemovePage_Extension <: ViolationExtendedRule end
@@ -192,6 +211,7 @@ struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct ReturnType_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
+struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -210,7 +230,7 @@ const error_msgs = Dict{String, String}()
 function reset_recommentation_dict!(d::Dict{String, Bool})
     # Violations
     d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
-    d[raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."] = false
+    d[raw"Use $(x) instead of $x"] = false
 end
 
 function initialize_recommentation_dict()
@@ -313,8 +333,9 @@ function check(t::Finalizer_Extention, x::EXPR)
 end
 
 function check(t::Async_Extention, x::EXPR)
-    generic_check(t, x, "@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
-    generic_check(t, x, "Threads.@async hole_variable", "Macro `@spawn` should be used instead of `@async`.")
+    msg = "Use `@spawn` instead of `@async`."
+    generic_check(t, x, "@async hole_variable", msg)
+    generic_check(t, x, "Threads.@async hole_variable", msg)
 end
 
 check(t::Ccall_Extention, x::EXPR) = generic_check(t, x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "`ccall` should be used with extreme caution.")
@@ -357,7 +378,6 @@ function check(t::Mmap_Extension, x::EXPR)
     generic_check(t, x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
 end
 
-check(t::Fetch_Extension, x::EXPR) = generic_check(t, x, "fetch(hole_variable)")
 check(t::Inbounds_Extension, x::EXPR) = generic_check(t, x, "@inbounds hole_variable")
 
 function check(t::Atomic_Extension, x::EXPR)
@@ -438,7 +458,7 @@ function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
 end
 
 function check(t::In_Extension, x::EXPR)
-    msg = "It is preferable to use `tin(item,collection)` instead of the Julia's `in` or `∈`."
+    msg = "Use `tin(item,collection)` instead of the Julia's `in` or `∈`."
     generic_check(t, x, "in(hole_variable,hole_variable)", msg)
     generic_check(t, x, "hole_variable in hole_variable", msg)
 
@@ -447,12 +467,12 @@ function check(t::In_Extension, x::EXPR)
 end
 
 function check(t::HasKey_Extension, x::EXPR)
-    msg = "It is preferable to use `thaskey(dict,key)` instead of the Julia's `haskey`."
+    msg = "Use `thaskey(dict,key)` instead of the Julia's `haskey`."
     generic_check(t, x, "haskey(hole_variable,hole_variable)", msg)
 end
 
 function check(t::Equal_Extension, x::EXPR)
-    msg = "It is preferable to use `tequal(dict,key)` instead of the Julia's `equal`."
+    msg = "Use `tequal(dict,key)` instead of the Julia's `equal`."
     generic_check(t, x, "equal(hole_variable,hole_variable)", msg)
 end
 
@@ -501,38 +521,20 @@ function check(t::UnreachableBranch_Extension, x::EXPR)
         "Unreachable branch.")
 end
 
-
-# Argument is now a CSTParser string
-# function check_string(x::EXPR)
-#     @assert x.head == :string
-
-#     msg_error = "Suspicious string interpolation."
-#     # We iterate over the arguments of the CST String to check for STRING: (
-#     # if we find one, this means the string was incorrectly interpolated
-#     length(x.args) == 3 &&
-#     x.args[1].head == :STRING && x.args[1].val == "(" &&
-#     x.args[2].head == :IDENTIFIER &&
-#     x.args[3].head == :STRING && !isnothing(match(r"^\.\H+", x.args[3].val)) &&
-#     seterror!(x, msg_error)
-
-# end
-
-
 function check(t::StringInterpolation_Extension, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
-    msg_error = raw"Suspicious string interpolation, you may want to have $(a.b.c) instead of ($a.b.c)."
+    msg_error = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
     check_for_recommendation(typeof(t), msg_error)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
 
-    for index in 1:(length(x.args)-1)
-        x.args[index].head == :IDENTIFIER &&
-        x.args[index+1].head == :STRING &&
-        !isnothing(match(r"^\.[a-z,A-Z]+", x.args[index+1].val)) &&
-        seterror!(x, msg_error)
-    end
+    # The number of interpolations is the same than $ in trivia and arguments
+    dollars_count = length(filter(q->q.head == :OPERATOR && q.val == raw"$", x.trivia))
+
+    open_parent_count = length(filter(q->q.head == :LPAREN, x.trivia))
+    open_parent_count != dollars_count && seterror!(x, msg_error)
 end
 
 function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
@@ -561,6 +563,8 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     contains(markers[:filename], "src/Compiler/Front") && return
     contains(markers[:filename], "src/Compiler/front2back.jl") && return
     contains(markers[:filename], "src/FFI") && return
+    # Also, allow usages in tests
+    contains(markers[:filename], "test/") && return
 
     generic_check(t, x, "shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "Front.shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
@@ -568,4 +572,8 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     generic_check(t, x, "Front.shape_splat(hole_variable_star)", "Usage of `shape_splat` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "ffi_shape_term(hole_variable_star)", "Usage of `ffi_shape_term` is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "Shape", "Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.")
+end
+
+function check(t::InterpolationInSafeLog_Extension, x::EXPR)
+    generic_check(t, x, "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"", "Safe warning log has interpolation.")
 end

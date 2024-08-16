@@ -4,11 +4,14 @@ name: Run static code analyzer Lint
 
 on:
   pull_request:
-    types: [ labeled, opened, synchronize ]
+  push:
+    branches:
+      - master
 
 jobs:
   run_lint:
-    if: contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint'
+    # if: contains(github.event.pull_request.labels.*.name, 'build:lint') || github.event.label.name == 'build:lint'
+    if: ${{ github.event_name == 'push' || !contains(github.event.pull_request.labels.*.name, 'build:nolint') }}
     runs-on: ubuntu-latest
     permissions:
         pull-requests: write
