@@ -173,7 +173,7 @@ function annotation_for_this_line(line::AbstractString)
         return ""
     end
     # An annotation must be in a comment and not contain any `#` or `"` characters.
-    m = match(r"# lint-disable-line: *([^\"#]+)$", line)
+    m = match(r"#\h*lint-disable-line: *([^\"#]+)$", line)
     return isnothing(m) ? nothing : m[1]
 end
 
@@ -241,9 +241,15 @@ struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
     file_prefix_to_remove::String
-    MarkdownFormat() = new("", "", "")
-    MarkdownFormat(branch::String, repo::String, prefix::String) = new(branch, repo, prefix)
-    MarkdownFormat(branch::String, repo::String) = new(branch, repo, "")
+    stream_workflowcommand::IO
+
+    MarkdownFormat() = new("", "", "", devnull)
+    MarkdownFormat(
+        branch::String,
+        repo::String,
+        prefix::String,
+        stream_workflowcommand::IO) = new(branch, repo, prefix, stream_workflowcommand)
+    MarkdownFormat(branch::String, repo::String) = new(branch, repo, "", devnull)
 end
 
 """
@@ -405,7 +411,9 @@ end
 
 # Essential function to print a lint report using the Markdown
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    line_number = split(coordinates, [' ', ','])[2]
+    coord = split(coordinates, [' ', ','])
+    column_number = coord[1]
+    line_number = coord[2]
     file_name = string(last(split(hint, " ")))
     corrected_file_name = remove_prefix_from_filename(file_name, format)
 
@@ -415,9 +423,10 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     else
         print(io, " - **$(coordinates)** $(hint)\n")
     end
-    # echo "::error file=app.js,line=1,col=5,endColumn=7::Missing semicolon"
-    # NEED TO ADD COLUMN
-    println(stdout, "::error file=$(corrected_file_name),line=$(line_number)::$(hint)")
+
+    # Produce workflow command to see results in the PR file changed tab:
+    # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
+    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(line_number),col=$(column_number)::$(hint)")
 end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
@@ -622,6 +631,7 @@ function generate_report(
     branch_name::String="",
     file_prefix_to_remove::String="",
     analyze_all_file_found_locally::Bool=false,
+    stream_workflowcommand::IO=stdout,
 )
     if isfile(output_filename)
         @error "File $output_filename exist already."
@@ -657,7 +667,12 @@ function generate_report(
             Report creation time (UTC): ($(now(UTC)))")
 
 
-        formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
+        formatter=MarkdownFormat(
+            branch_name,
+            github_repository,
+            file_prefix_to_remove,
+            stream_workflowcommand,
+            )
 
         io_violations = IOBuffer()
         io_recommendations = IOBuffer()
