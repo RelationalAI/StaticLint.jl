@@ -1937,3 +1937,43 @@ end
     @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
     @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
 end
+
+@testset "Prohibit return types" begin
+    @testset "Case 01" begin
+        source = raw"""
+        function pm_check_mutable_pages(bytes::Int)::Bool
+            pm = PAGER_MONITOR
+
+            max_pages = (@atomic pm.mutable_pages_running_max)
+            max_bytes = (@atomic pm.mutable_bytes_running_max)
+            if max_bytes >= bytes
+                @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
+                    detected: $max_pages pages weighting $max_bytes bytes"
+
+                @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
+                    detected: $max_pages pages weighting $max_bytes bytes"
+
+                @ensure @warnv_safe_to_log 0 "no interpolation"
+
+                mutable_report = pm_generate_mutable_pages_report!()
+                if !isnothing(mutable_report)
+                    @warnv_safe_to_log 0 mutable_report
+                end
+                return false
+            end
+
+            return true
+        end
+        """
+        @test lint_test(source, "Line 1, column 1: Return type are prohibited")
+    end
+
+    @testset "Case 02" begin
+        source = """
+        function Base.foo()::Int
+            return 42
+        end
+        """
+        @test lint_test(source, "Line 1, column 1: Return type are prohibited")
+    end
+end

@@ -550,11 +550,13 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
 end
 
 function check(t::ReturnType_Extension, x::EXPR, markers::Dict{Symbol,String})
-    # haskey(markers, :filename) || return
-    # contains(markers[:filename], "src/Compiler/Front") || return
+    # No check of return type in Arroyo
+    haskey(markers, :filename) || return
+    contains(markers[:filename], "packages/Arroyo/src/") && return
 
-    generic_check(t, x, "hole_variable(hole_variable_star)::hole_variable = hole_variable", "Return type are prohibited.")
-    generic_check(t, x, "function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", "Return type are prohibited.")
+    msg = "Return type are prohibited ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#return-type-annotations-in-function-signatures-can-cause-runtime-cost))."
+    generic_check(t, x, "hole_variable(hole_variable_star)::hole_variable = hole_variable", msg)
+    generic_check(t, x, "function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", msg)
 end
 
 function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
