@@ -285,7 +285,7 @@ function filter_and_print_hint(
     offset = Base.parse(Int64, offset_as_string) + 1
 
     # Remove the offset from the result. No need for this.
-    cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
+    cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
 
     should_print_hint(result) = result.printout_count <= 60
     try
@@ -324,7 +324,7 @@ function filter_and_print_hint(
         end
     catch e
         @assert e isa BoundsError
-        @error "Cannot retrieve offset=$offset in file $filename"
+        @error "Cannot retrieve offset=$(offset) in file $(filename)"
     end
     return false
 end
@@ -418,7 +418,7 @@ function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::S
     corrected_file_name = remove_prefix_from_filename(file_name, format)
 
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
+        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
         print(io, " - **$(extended_coordinates)** $(hint)\n")
     else
         print(io, " - **$(coordinates)** $(hint)\n")
@@ -484,7 +484,7 @@ function run_lint(
 
         # We are now reaching a bug HERE
         if isnothing(r)
-            @error "BUG FOUND IN StaticLint.jl, message from hint $m cannot be extracted"
+            @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
             return "ERROR"
         end
 
@@ -634,13 +634,13 @@ function generate_report(
     stream_workflowcommand::IO=stdout,
 )
     if isfile(output_filename)
-        @error "File $output_filename exist already."
+        @error "File $(output_filename) exist already."
         return
     end
 
     if !isnothing(json_filename)
         if isfile(json_filename)
-            @error "File $output_filename exist already, cannot create json file."
+            @error "File $(output_filename) exist already, cannot create json file."
             return
         end
         json_output = open(json_filename, "w")
