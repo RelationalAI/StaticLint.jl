@@ -982,10 +982,19 @@ end
                     flush(io2)
 
                     output_file = tempname()
-                    json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
+                    json_output = IOBuffer()
+                    stream_workflowcommand = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_output, stream_workflowcommand)
 
-                    json_report = JSON3.read(String(take!(json_io)))
+                    # Checking the Workflow command
+                    stream_workflowcommand_report = String(take!(stream_workflowcommand))
+                    wc_lines = split(stream_workflowcommand_report, "\n")
+                    @test length(wc_lines) == 4
+                    @test isempty(wc_lines[end])
+                    @test contains(wc_lines[1], "foo.jl,line=2,col=Line::Use `@spawn` instead of `@async`.")
+
+                    # Checking the JSON
+                    json_report = JSON3.read(String(take!(json_output)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
 
@@ -1037,10 +1046,10 @@ end
                     flush(io2)
 
                     output_file = tempname()
-                    json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
+                    json_output = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_output, stream_workflowcommand=devnull)
 
-                    json_report = JSON3.read(String(take!(json_io)))
+                    json_report = JSON3.read(String(take!(json_output)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
 
@@ -1096,7 +1105,7 @@ end
                     json_filename = tempname()
                     @test !isfile(json_filename)
                     # json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file; json_filename=json_filename)
+                    StaticLint.generate_report([file1, file2], output_file; json_filename, stream_workflowcommand=devnull)
 
                     @test isfile(json_filename)
                     json_content = open(io->read(io, String), json_filename)
@@ -1142,10 +1151,10 @@ end
 
     @testset "No modified julia file" begin
         output_file = tempname()
-        json_io = IOBuffer()
-        StaticLint.generate_report(String[], output_file; json_output=json_io)
+        json_output = IOBuffer()
+        StaticLint.generate_report(String[], output_file; json_output, stream_workflowcommand=devnull)
 
-        json_report = JSON3.read(String(take!(json_io)))
+        json_report = JSON3.read(String(take!(json_output)))
         @test json_report[:source] == "StaticLint"
         @test json_report[:data][:files_count] == 0
 
@@ -1174,10 +1183,10 @@ end
                 flush(io1)
 
                 output_file = tempname()
-                json_io = IOBuffer()
-                StaticLint.generate_report([file1], output_file; json_output=json_io)
+                json_output = IOBuffer()
+                StaticLint.generate_report([file1], output_file; json_output, stream_workflowcommand=devnull)
 
-                json_report = JSON3.read(String(take!(json_io)))
+                json_report = JSON3.read(String(take!(json_output)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 0
                 @test json_report[:data][:recommandation_count] == 0
@@ -1215,10 +1224,10 @@ end
                     flush(io2)
 
                     output_file = tempname()
-                    json_io = IOBuffer()
-                    StaticLint.generate_report([file1, file2], output_file; json_output=json_io)
+                    json_output = IOBuffer()
+                    StaticLint.generate_report([file1, file2], output_file; json_output, stream_workflowcommand=devnull)
 
-                    json_report = JSON3.read(String(take!(json_io)))
+                    json_report = JSON3.read(String(take!(json_output)))
                     @test json_report[:source] == "StaticLint"
                     @test json_report[:data][:files_count] == 2
                     @test json_report[:data][:recommandation_count] == 0
@@ -1251,10 +1260,10 @@ end
                 flush(io1)
 
                 output_file = tempname()
-                json_io = IOBuffer()
-                StaticLint.generate_report([file1], output_file; json_output=json_io)
+                json_output = IOBuffer()
+                StaticLint.generate_report([file1], output_file; json_output, stream_workflowcommand=devnull)
 
-                json_report = JSON3.read(String(take!(json_io)))
+                json_report = JSON3.read(String(take!(json_output)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
 
@@ -1293,7 +1302,8 @@ end
                     json_output=json_io,
                     github_repository="RelationalAI/raicode",
                     branch_name="axb-foo-bar",
-                    file_prefix_to_remove="var/")
+                    file_prefix_to_remove="var/",
+                    stream_workflowcommand=devnull)
 
                 json_report = JSON3.read(String(take!(json_io)))
                 @test json_report[:source] == "StaticLint"
@@ -1340,7 +1350,8 @@ end
                     github_repository="RelationalAI/raicode",
                     branch_name="axb-foo-bar",
                     file_prefix_to_remove="var/",
-                    analyze_all_file_found_locally=true # OVERRIDE THE PROVIDED SET OF FILES
+                    analyze_all_file_found_locally=true, # OVERRIDE THE PROVIDED SET OF FILES
+                    stream_workflowcommand=devnull
                 )
 
                 json_report = JSON3.read(String(take!(json_io)))
@@ -1375,10 +1386,10 @@ end
                 flush(io1)
 
                 output_file = tempname()
-                json_io = IOBuffer()
-                StaticLint.generate_report([file1], output_file; json_output=json_io)
+                json_output = IOBuffer()
+                StaticLint.generate_report([file1], output_file; json_output, stream_workflowcommand=devnull)
 
-                json_report = JSON3.read(String(take!(json_io)))
+                json_report = JSON3.read(String(take!(json_output)))
                 @test json_report[:source] == "StaticLint"
                 @test json_report[:data][:files_count] == 1
                 @test json_report[:data][:recommandation_count] == 0
@@ -1436,6 +1447,26 @@ end
         @test !lint_has_error_test("""
             function f()
                 @async 1 + 2 # lint-disable-line
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 # lint-disable-line: Use `@spawn` instead of `@async`.
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #lint-disable-line: Use `@spawn` instead of `@async`.
+            end
+            """)
+        @test !lint_has_error_test("""
+            function f()
+                @async 1 + 2 #lint-disable-line:Use `@spawn` instead of `@async`.
+            end
+            """)
+        @test lint_has_error_test("""
+            function f()
+                @async 1 + 2 #lint-disable-line: not working `@spawn` instead of `@async`.
             end
             """)
         @test !lint_has_error_test("""

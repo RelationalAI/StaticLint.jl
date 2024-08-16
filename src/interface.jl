@@ -173,7 +173,7 @@ function annotation_for_this_line(line::AbstractString)
         return ""
     end
     # An annotation must be in a comment and not contain any `#` or `"` characters.
-    m = match(r"# lint-disable-line: *([^\"#]+)$", line)
+    m = match(r"#\h*lint-disable-line: *([^\"#]+)$", line)
     return isnothing(m) ? nothing : m[1]
 end
 
@@ -241,9 +241,15 @@ struct MarkdownFormat <: AbstractFormatter
     github_branch_name::String
     github_repository_name::String
     file_prefix_to_remove::String
-    MarkdownFormat() = new("", "", "")
-    MarkdownFormat(branch::String, repo::String, prefix::String) = new(branch, repo, prefix)
-    MarkdownFormat(branch::String, repo::String) = new(branch, repo, "")
+    stream_workflowcommand::IO
+
+    MarkdownFormat() = new("", "", "", devnull)
+    MarkdownFormat(
+        branch::String,
+        repo::String,
+        prefix::String,
+        stream_workflowcommand::IO) = new(branch, repo, prefix, stream_workflowcommand)
+    MarkdownFormat(branch::String, repo::String) = new(branch, repo, "", devnull)
 end
 
 """
@@ -279,7 +285,7 @@ function filter_and_print_hint(
     offset = Base.parse(Int64, offset_as_string) + 1
 
     # Remove the offset from the result. No need for this.
-    cleaned_hint = replace(hint_as_string, (" at offset $offset_as_string of" => ""))
+    cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
 
     should_print_hint(result) = result.printout_count <= 60
     try
@@ -318,7 +324,7 @@ function filter_and_print_hint(
         end
     catch e
         @assert e isa BoundsError
-        @error "Cannot retrieve offset=$offset in file $filename"
+        @error "Cannot retrieve offset=$(offset) in file $(filename)"
     end
     return false
 end
@@ -403,16 +409,24 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
 end
 
+# Essential function to print a lint report using the Markdown
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
+    coord = split(coordinates, [' ', ','])
+    column_number = coord[1]
+    line_number = coord[2]
+    file_name = string(last(split(hint, " ")))
+    corrected_file_name = remove_prefix_from_filename(file_name, format)
+
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        line_number = split(coordinates, [' ', ','])[2]
-        file_name = string(last(split(hint, " ")))
-        corrected_file_name = remove_prefix_from_filename(file_name, format)
-        extended_coordinates = "[$coordinates](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
-        print(io, " - **$extended_coordinates** $hint\n")
+        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
+        print(io, " - **$(extended_coordinates)** $(hint)\n")
     else
-        print(io, " - **$coordinates** $hint\n")
+        print(io, " - **$(coordinates)** $(hint)\n")
     end
+
+    # Produce workflow command to see results in the PR file changed tab:
+    # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
+    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(line_number),col=$(column_number)::$(hint)")
 end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
@@ -470,7 +484,7 @@ function run_lint(
 
         # We are now reaching a bug HERE
         if isnothing(r)
-            @error "BUG FOUND IN StaticLint.jl, message from hint $m cannot be extracted"
+            @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
             return "ERROR"
         end
 
@@ -607,8 +621,6 @@ the github action workflow to run Lint on master.
 
 When provided, `github_repository` and `branch_name` are used to have clickable links in
 the Markdown report.
-
-
 """
 function generate_report(
     filenames::Vector{String},
@@ -619,15 +631,16 @@ function generate_report(
     branch_name::String="",
     file_prefix_to_remove::String="",
     analyze_all_file_found_locally::Bool=false,
+    stream_workflowcommand::IO=stdout,
 )
     if isfile(output_filename)
-        @error "File $output_filename exist already."
+        @error "File $(output_filename) exist already."
         return
     end
 
     if !isnothing(json_filename)
         if isfile(json_filename)
-            @error "File $output_filename exist already, cannot create json file."
+            @error "File $(output_filename) exist already, cannot create json file."
             return
         end
         json_output = open(json_filename, "w")
@@ -654,7 +667,12 @@ function generate_report(
             Report creation time (UTC): ($(now(UTC)))")
 
 
-        formatter=MarkdownFormat(branch_name, github_repository, file_prefix_to_remove)
+        formatter=MarkdownFormat(
+            branch_name,
+            github_repository,
+            file_prefix_to_remove,
+            stream_workflowcommand,
+            )
 
         io_violations = IOBuffer()
         io_recommendations = IOBuffer()
@@ -710,6 +728,8 @@ function generate_report(
     report_as_string = open(output_filename) do io read(io, String) end
     print_datadog_report(json_output, report_as_string, lint_result.files_count, lint_result.violations_count, lint_result.recommendations_count)
 
+    # If a json_filename was provided, we are writing the result in json_output.
+    # In that case, we need to close the stream at the end.
     if !isnothing(json_filename)
         close(json_output)
     end
