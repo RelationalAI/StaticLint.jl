@@ -484,7 +484,7 @@ function run_lint(
 
         # We are now reaching a bug HERE
         if isnothing(r)
-            @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
+            @error "BUG FOUND IN StaticLint.jl, message from hint: $(m) cannot be extracted"
             return "ERROR"
         end
 

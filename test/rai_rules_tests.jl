@@ -1988,3 +1988,50 @@ end
     @test lint_test(source, "Line 2, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
     @test lint_test(source, "Line 6, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
 end
+
+@testset "Return type in derived functions" begin
+    @testset "No error" begin
+        source = """
+            @derived v=10 function PhaseAPI.generated_defs_for_id(
+                rt::Runtime,
+                path::RelPath,
+                phase::PhaseNormalization,
+            )::PhaseResult
+
+                return nothing
+            end
+            """
+        @test !lint_has_error_test(source)
+        # @test lint_test(source, "Line 1, column 1: Return type necessary in `@derived` functions.")
+    end
+    @testset "With error 01" begin
+        source = """
+            @derived v=10 function PhaseAPI.generated_defs_for_id(
+                rt::Runtime,
+                path::RelPath,
+                phase::PhaseNormalization,
+            )
+
+                return nothing
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source, "Line 1, column 1: Return type necessary in `@derived` functions.")
+    end
+
+    @testset "With error 02" begin
+        source = """
+            @derived function PhaseAPI.generated_defs_for_id(
+                rt::Runtime,
+                path::RelPath,
+                phase::PhaseNormalization,
+            )
+
+                return nothing
+            end
+            """
+        @test lint_has_error_test(source)
+        @test lint_test(source, "Line 1, column 1: Return type necessary in `@derived` functions.")
+    end
+end
+

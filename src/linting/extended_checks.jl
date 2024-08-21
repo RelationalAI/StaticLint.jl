@@ -212,6 +212,7 @@ struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
+struct ReturnTypeInDerived <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -574,4 +575,10 @@ function check(t::UseOfStaticThreads, x::EXPR)
     msg = "Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`. Static threads must not be used as generated tasks will not be able to migrate across threads."
     generic_check(t, x, "@threads :static hole_variable_star", msg)
     generic_check(t, x, "Threads.@threads :static hole_variable_star", msg)
+end
+
+function check(t::ReturnTypeInDerived, x::EXPR, markers::Dict{Symbol,String})
+    msg = "Return type necessary in `@derived` functions."
+    generic_check(t, x, "@derived hole_variable function hole_variable(hole_variable_star) hole_variable_star end", msg)
+    generic_check(t, x, "@derived function hole_variable(hole_variable_star) hole_variable_star end", msg)
 end
