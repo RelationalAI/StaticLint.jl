@@ -555,6 +555,7 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     contains(markers[:filename], "src/Compiler/Front") && return
     contains(markers[:filename], "src/Compiler/front2back.jl") && return
     contains(markers[:filename], "src/FFI") && return
+    contains(markers[:filename], "src/FrontIR") && return
     # Also, allow usages in tests
     contains(markers[:filename], "test/") && return
 
