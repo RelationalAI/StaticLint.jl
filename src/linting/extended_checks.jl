@@ -212,6 +212,7 @@ struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
+struct InterpolationOnlyInSafe <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -575,4 +576,16 @@ function check(t::UseOfStaticThreads, x::EXPR)
     msg = "Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`. Static threads must not be used as generated tasks will not be able to migrate across threads."
     generic_check(t, x, "@threads :static hole_variable_star", msg)
     generic_check(t, x, "Threads.@threads :static hole_variable_star", msg)
+end
+
+function check(t::InterpolationOnlyInSafe, x::EXPR, markers::Dict{Symbol,String})
+    # We are in a macro call and the macro is @safe, we merely exit
+    haskey(markers, :macrocall) && markers[:macrocall] == "@safe" && return
+
+    # We are not in a @safe macro call, so we need to check for interpolation
+    msg = raw"""
+        Log messages must always be constructed via @safe("..") strings. If this interpolation is used in a log message, it should be a @safe-string. Please try this instead: @safe("...$(x)..."). If this is not being used for logging, you can lint-ignore this line.
+        """
+
+    generic_check(t, x, "\"LINT_STRING_WITH_INTERPOLATION\"", msg)
 end

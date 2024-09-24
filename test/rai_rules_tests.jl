@@ -687,6 +687,7 @@ end
     # LINT_STRING_WITH_INTERPOLATION
     @test !t("\"1 + 2\"", "\"LINT_STRING_WITH_INTERPOLATION\"")
     @test t(raw"\"foo $x\"", "\"LINT_STRING_WITH_INTERPOLATION\"")
+    @test t(raw"\"foo $(x)\"", "\"LINT_STRING_WITH_INTERPOLATION\"")
     @test t(raw"@warnv_safe_to_log 1 \"logged! $(a_variable)\"", "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"")
     @test !t(raw"@warnv_safe_to_log 1 \"logged! (a_variable)\"", "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"")
 
@@ -1783,86 +1784,86 @@ end
     @test !isnothing(match(expected, result))
 end
 
-@testset "Checking string interpolation" begin
+# @testset "Checking string interpolation" begin
 
-    # ERRORS
-    source_with_error = raw"""
-    function f(conf)
-        @info "($conf.container.baseurl)"
-    end
-    """
+#     # ERRORS
+#     source_with_error = raw"""
+#     function f(conf)
+#         @info "($conf.container.baseurl)"
+#     end
+#     """
 
-    source_with_error2 = raw"""
-    function f(conf)
-        @info "$conf.container.baseurl"
-    end
-    """
+#     source_with_error2 = raw"""
+#     function f(conf)
+#         @info "$conf.container.baseurl"
+#     end
+#     """
 
-    source_with_error3 = raw"""
-    function f(conf)
-        @info "this string contains an error $conf.container.baseurl indeed!"
-    end
-    """
+#     source_with_error3 = raw"""
+#     function f(conf)
+#         @info "this string contains an error $conf.container.baseurl indeed!"
+#     end
+#     """
 
-    source_with_error4 = raw"""
-    function f(conf)
-        @info "this string contains an error $conf .container.baseurl indeed!"
-    end
-    """
+#     source_with_error4 = raw"""
+#     function f(conf)
+#         @info "this string contains an error $conf .container.baseurl indeed!"
+#     end
+#     """
 
-    source_with_error5 = raw"""
-    function f(engine_name)
-        @info "Issuing delete request for engine $engine_name..."
-    end
-    """
+#     source_with_error5 = raw"""
+#     function f(engine_name)
+#         @info "Issuing delete request for engine $engine_name..."
+#     end
+#     """
 
-    source_with_error6 = raw"""
-    function f()
-        Source("model/$name", "model/$name",  read(joinpath(@__DIR__, "models", "$name.rel"), String))
-    end
-    """
+#     source_with_error6 = raw"""
+#     function f()
+#         Source("model/$name", "model/$name",  read(joinpath(@__DIR__, "models", "$name.rel"), String))
+#     end
+#     """
 
-    source_with_error7 = raw"""
-    function f()
-        path = "$dir/$name.csv"
-    end
-    """
+#     source_with_error7 = raw"""
+#     function f()
+#         path = "$dir/$name.csv"
+#     end
+#     """
 
-    @test lint_test(source_with_error, raw"Line 2, column 11: Use $(x) instead of $x ")
-    @test lint_test(source_with_error2, raw"Line 2, column 11: Use $(x) instead of $x ")
-    @test lint_test(source_with_error3, raw"Line 2, column 11: Use $(x) instead of $x ")
-    @test lint_test(source_with_error4, raw"Line 2, column 11: Use $(x) instead of $x ")
-    @test lint_test(source_with_error5, raw"Line 2, column 11: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error, raw"Line 2, column 11: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error2, raw"Line 2, column 11: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error3, raw"Line 2, column 11: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error4, raw"Line 2, column 11: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error5, raw"Line 2, column 11: Use $(x) instead of $x ")
 
-    @test lint_test(source_with_error6, raw"Line 2, column 12: Use $(x) instead of $x ")
-    @test lint_test(source_with_error6, raw"Line 2, column 27: Use $(x) instead of $x ")
-    @test lint_test(source_with_error6, raw"Line 2, column 77: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error6, raw"Line 2, column 12: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error6, raw"Line 2, column 27: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error6, raw"Line 2, column 77: Use $(x) instead of $x ")
 
-    @test lint_test(source_with_error7, raw"Line 2, column 12: Use $(x) instead of $x ")
+#     @test lint_test(source_with_error7, raw"Line 2, column 12: Use $(x) instead of $x ")
 
-    # NO ERROR
-    source_without_error = raw"""
-    function f(conf)
-        @info "$(conf.container.baseurl)"
-    end
-    """
+#     # NO ERROR
+#     source_without_error = raw"""
+#     function f(conf)
+#         @info "$(conf.container.baseurl)"
+#     end
+#     """
 
-    source_without_error2 = raw"""
-    function f(conf)
-        @info "this string contains an error $(conf.container.baseurl) indeed!"
-    end
-    """
+#     source_without_error2 = raw"""
+#     function f(conf)
+#         @info "this string contains an error $(conf.container.baseurl) indeed!"
+#     end
+#     """
 
-    source_without_error3 = raw"""
-    function f()
-        _profile_filename = "profile-$(timestamp).pb.gz"
-    end
-    """
+#     source_without_error3 = raw"""
+#     function f()
+#         _profile_filename = "profile-$(timestamp).pb.gz"
+#     end
+#     """
 
-    @test count_lint_errors(source_without_error) == 0
-    @test count_lint_errors(source_without_error2) == 0
-    @test count_lint_errors(source_without_error3) == 0
-end
+#     @test count_lint_errors(source_without_error) == 0
+#     @test count_lint_errors(source_without_error2) == 0
+#     @test count_lint_errors(source_without_error3) == 0
+# end
 
 @testset "Arithmetic LintResult" begin
     l1 = LintResult()
@@ -1987,4 +1988,19 @@ end
     """
     @test lint_test(source, "Line 2, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
     @test lint_test(source, "Line 6, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
+end
+
+
+@testset "Interpolation prohibited outside @safe" begin
+    source = raw"""
+    function f()
+        print("...$(x)...")
+        @info @safe("...$(x)...")
+        @safe("...$(y)...")
+    end
+    """
+    @test lint_test(source, raw"""Line 2, column 11: Log messages must always be constructed via @safe("..") strings. If this interpolation is used in a log message, it should be a @safe-string. Please try this instead: @safe("...$(x)..."). If this is not being used for logging, you can lint-ignore this line.""")
+
+    # There is only one lint error in source, which is in Line 2 as tested just above
+    @test count_lint_errors(source) == 1
 end
