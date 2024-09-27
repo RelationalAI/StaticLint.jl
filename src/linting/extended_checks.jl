@@ -552,8 +552,7 @@ end
 function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :filename) || return
     # In the front-end and in FFI, we are allowed to refer to `Shape`
-    contains(markers[:filename], "src/Compiler/Front") && return
-    contains(markers[:filename], "src/Compiler/front2back.jl") && return
+    contains(markers[:filename], "src/FrontCompiler") && return
     contains(markers[:filename], "src/FFI") && return
     contains(markers[:filename], "src/FrontIR") && return
     # Also, allow usages in tests
