@@ -1926,7 +1926,7 @@ end
     """
 
     @test count_lint_errors(source; directory="/src/Execution") == 3
-    @test count_lint_errors(source; directory="/src/Compiler/Front") == 0
+    @test count_lint_errors(source; directory="/src/FrontCompiler") == 0
 
     @test lint_test(source,
         "Line 1, column 67: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
