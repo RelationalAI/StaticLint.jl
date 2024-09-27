@@ -1,6 +1,8 @@
 using Dates
 using JSON3
 
+global MAX_REPORTED_ERRORS = 60 # 1_000_000
+
 mutable struct LintResult
     files_count::Integer
     violations_count::Integer
@@ -287,7 +289,7 @@ function filter_and_print_hint(
     # Remove the offset from the result. No need for this.
     cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
 
-    should_print_hint(result) = result.printout_count <= 60
+    should_print_hint(result) = result.printout_count <= MAX_REPORTED_ERRORS
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
@@ -640,7 +642,7 @@ function generate_report(
 
     if !isnothing(json_filename)
         if isfile(json_filename)
-            @error "File $(output_filename) exist already, cannot create json file."
+            @error "File $(json_filename) exist already, cannot create json file."
             return
         end
         json_output = open(json_filename, "w")
