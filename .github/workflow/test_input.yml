@@ -1,6 +1,7 @@
 name: Mixed inputs
 
 on:
+  pull_request: -- Useful when PR is not merged
   workflow_dispatch:
     inputs:
       name:
