@@ -16,7 +16,8 @@ on:
         description: Include 🎉🤣 emojis
       environment:
         type: environment
-  pull_request:        
+  pull_request:
+  push:
 
 jobs:
   greet:
