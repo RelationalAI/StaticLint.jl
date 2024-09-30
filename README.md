@@ -47,8 +47,8 @@ The expression above outputs 1928 potential threats.
 
 You may want to contribute to StaticLint.jl for many reasons. Here are a few of them:
 
- - _A rule needs to be better documented_. It is easy to do so: create a PR to this repository that improves one of the rules defined [HERE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). This `extended_checks.jl` file contains all the RAI-specific rules. 
- - _A new rule has to be defined_. As our system grows and evolves, new rules may have to be defined. The beginning of the file [extended_checks.jl](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl) and the section below detail this process. You can always ask `@Alexandre Bergel` on Slack for assistance. Create a new PR with the rule. 
+- _A rule needs to be better documented_. It is easy to do so: create a PR to this repository that improves one of the rules defined [HERE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). This `extended_checks.jl` file contains all the RAI-specific rules.
+- _A new rule has to be defined_. As our system grows and evolves, new rules may have to be defined. The beginning of the file [extended_checks.jl](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl) and the section below detail this process. You can always ask `@Alexandre Bergel` on Slack for assistance. Create a new PR with the rule.
 
 ## Lint rules
 
@@ -99,7 +99,6 @@ end
 
 This will run the `"Threads.nthreads()"` described earlier in all folders expect in `myfolder`.
 
-
 ## Locally disabling StaticLint
 
 StaticLint can be locally disabled. For now, only for a given line. E.g.,
@@ -140,10 +139,24 @@ function f()
 end
 ```
 
-
 ## Integration with GitHub Action
-In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
+
+In addition to being run locally, as described above, StaticLint can be run via GitHub
+Action. When a PR is created, StaticLint is run on the files modified in this PR and the
+result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
 
+## Listing all violations
+
+Currently, StaticLint limits the output of the report. In total, the number of reported
+violations and recommendations does not exceed 60. This limit is set by the variable
+`MAX_REPORTED_ERRORS`. You may want to increase it if you wish to have the full report
+from StaticLint.
+
 ## Fork
-This repository is a fork of https://github.com/julia-vscode/StaticLint.jl . The decision to fork this project instead of directly contributing to it was not taken lightly. First, the julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such using the original StaticLint with our RAI-specific rules was not an easy or even feasible task.
+
+This repository is a fork of https://github.com/julia-vscode/StaticLint.jl. The decision to
+fork this project instead of directly contributing to it was not taken lightly. First, the
+julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such
+using the original StaticLint with our RAI-specific rules was not an easy or even feasible
+task.

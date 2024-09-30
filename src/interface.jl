@@ -1,6 +1,8 @@
 using Dates
 using JSON3
 
+global MAX_REPORTED_ERRORS = 60 # 1_000_000
+
 mutable struct LintResult
     files_count::Integer
     violations_count::Integer
@@ -287,7 +289,7 @@ function filter_and_print_hint(
     # Remove the offset from the result. No need for this.
     cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
 
-    should_print_hint(result) = result.printout_count <= 60
+    should_print_hint(result) = result.printout_count <= MAX_REPORTED_ERRORS
     try
         line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
 
@@ -295,7 +297,6 @@ function filter_and_print_hint(
         if has_no_annotation
             # No annotation, so we merely print the reported error.
             if should_print_hint(lint_result)
-                # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
                 print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
                 lint_result.printout_count += 1
             end
@@ -410,9 +411,10 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
 end
 
 # Essential function to print a lint report using the Markdown
+# coordinates can be "Line 6, column 44:"
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    coord = split(coordinates, [' ', ','])
-    column_number = coord[1]
+    coord = split(coordinates, [' ', ',', ':'])
+    column_number = coord[5]
     line_number = coord[2]
     file_name = string(last(split(hint, " ")))
     corrected_file_name = remove_prefix_from_filename(file_name, format)
@@ -640,7 +642,7 @@ function generate_report(
 
     if !isnothing(json_filename)
         if isfile(json_filename)
-            @error "File $(output_filename) exist already, cannot create json file."
+            @error "File $(json_filename) exist already, cannot create json file."
             return
         end
         json_output = open(json_filename, "w")

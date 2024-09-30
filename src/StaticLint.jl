@@ -77,7 +77,9 @@ function (state::Toplevel)(x::EXPR)
     handle_macro(x, state)
     s0 = scopes(x, state)
     resolve_ref(x, state)
-    followinclude(x, state)
+
+    # DO NOT FOLLOW INCLUDE ANYMORE
+    # followinclude(x, state)
 
     old_in_modified_expr = state.in_modified_expr
     if state.modified_exprs !== nothing && x in state.modified_exprs

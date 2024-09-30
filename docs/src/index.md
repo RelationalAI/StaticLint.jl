@@ -35,7 +35,7 @@ Identifying and marking errors (5.) is, in general, dependent on steps 1-4. Thes
 
 
 ### Passes
-For a given experssion `x` this pass will:
+For a given expression `x` this pass will:
 
 * Handle import statements (`resolve_import`). This either explicitly imports variables into the current state (for statements such as `import/using SomeModule: binding1, binding2`) or makes the exported bindings of a modules available more generally (e.g. `using SomeOtherModule`). The availability of includable packages is handled by the `getsymbolserver` function called on the `state.server`.
 * Determine whether `x` introduces a new variable. `mark_bindings!` performs this and may mark bindings for child nodes of `x` (e.g. when called on an expression that defines a `Function` this will mark the arguments of the signature as introducing bindings.)
@@ -44,7 +44,7 @@ For a given experssion `x` this pass will:
 * Special handling for macros introducing new bindings as necessary, at the moment limited to `deprecate`, `enum`, `goto`, `label`, and `nospecialize`.
 * Adds new scopes for the interior of `x` as needed (`scopes`).
 * Resolves references for identifiers (i.e. a variable name), macro name, keywords in function signatures and dotted names (e.g. `A.B.c`). A name is first checked against bindings introduced within a scope then against exported variables of modules loaded into the scope. If this fails to resolve the name this is repeated for the parent scope. References that fail to resolve at this point, and are within a delayed scope (i.e. within a function) are added to a list to be resolved later.
-* If `x` is a call to `include(path_expr)` attempt to resolve `path_expr` to a loadable file from `state.server` and pass across the files ST (`followinclude`).
+* DISABLE PASS: If `x` is a call to `include(path_expr)` attempt to resolve `path_expr` to a loadable file from `state.server` and pass across the files ST (`followinclude`).
 * Traverse across child nodes of `x` (`traverse`) in execution order. This means, for example, that in the expression `a = b` we traverse `b` then `a` (ignoring the operator).
 
 ### Server
