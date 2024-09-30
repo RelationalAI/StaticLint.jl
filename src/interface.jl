@@ -297,7 +297,6 @@ function filter_and_print_hint(
         if has_no_annotation
             # No annotation, so we merely print the reported error.
             if should_print_hint(lint_result)
-                # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
                 print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
                 lint_result.printout_count += 1
             end

@@ -991,7 +991,7 @@ end
                     wc_lines = split(stream_workflowcommand_report, "\n")
                     @test length(wc_lines) == 4
                     @test isempty(wc_lines[end])
-                    @test contains(wc_lines[1], "foo.jl,line=2,col=Line::Use `@spawn` instead of `@async`.")
+                    @test contains(wc_lines[1], "foo.jl,line=2,col=3::Use `@spawn` instead of `@async`.")
 
                     # Checking the JSON
                     json_report = JSON3.read(String(take!(json_output)))
@@ -1407,6 +1407,25 @@ end
                 @test all_lines[end-1] == "🚨**In total, 100 rule violations and 0 PR reviewer recommendation are found over 1 Julia file**🚨"
                 @test all_lines[end] == ""
             end
+        end
+    end
+
+    @testset "Diamond between files" begin
+        mktempdir() do dir
+            open(joinpath(dir, "leaf.jl"), "w") do io
+                write(io, "function f()\n  @async 1 + 1\nend\n")
+            end
+
+            open(joinpath(dir, "bar.jl"), "w") do io
+                write(io, "include(\"leaf.jl\")\n")
+            end
+
+            str = IOBuffer()
+            result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.MarkdownFormat())
+            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+            @test result.files_count == 2
+            @test result.violations_count == 1
+            @test result.recommendations_count == 0
         end
     end
 end
