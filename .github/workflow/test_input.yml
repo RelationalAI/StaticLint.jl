@@ -1,7 +1,6 @@
 name: Mixed inputs
 
 on:
-  pull_request: -- Useful when PR is not merged
   workflow_dispatch:
     inputs:
       name:
@@ -17,6 +16,7 @@ on:
         description: Include 🎉🤣 emojis
       environment:
         type: environment
+  pull_request:        
 
 jobs:
   greet:
