@@ -412,9 +412,10 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
 end
 
 # Essential function to print a lint report using the Markdown
+# coordinates can be "Line 6, column 44:"
 function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    coord = split(coordinates, [' ', ','])
-    column_number = coord[1]
+    coord = split(coordinates, [' ', ',', ':'])
+    column_number = coord[5]
     line_number = coord[2]
     file_name = string(last(split(hint, " ")))
     corrected_file_name = remove_prefix_from_filename(file_name, format)
