@@ -209,6 +209,7 @@ struct Splatting_Extension <: RecommendationExtendedRule end
 struct UnreachableBranch_Extension <: ViolationExtendedRule end
 struct StringInterpolation_Extension <: ViolationExtendedRule end
 struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
+struct ReturnType_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
@@ -547,6 +548,16 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
     generic_check(t, x, "split_path(hole_variable)", "Usage of `RelPath` API method `split_path` is not allowed in this context.")
     generic_check(t, x, "drop_first(hole_variable)", "Usage of `RelPath` API method `drop_first` is not allowed in this context.")
     generic_check(t, x, "relpath_from_signature(hole_variable)", "Usage of method `relpath_from_signature` is not allowed in this context.")
+end
+
+function check(t::ReturnType_Extension, x::EXPR, markers::Dict{Symbol,String})
+    # No check of return type in Arroyo
+    haskey(markers, :filename) || return
+    contains(markers[:filename], "packages/Arroyo/src/") && return
+
+    msg = "Return type are prohibited ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#return-type-annotations-in-function-signatures-can-cause-runtime-cost))."
+    generic_check(t, x, "hole_variable(hole_variable_star)::hole_variable = hole_variable", msg)
+    generic_check(t, x, "function hole_variable(hole_variable_star)::hole_variable hole_variable_star end", msg)
 end
 
 function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
