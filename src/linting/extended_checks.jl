@@ -254,16 +254,28 @@ function reset_static_lint_caches()
 end
 
 function retrieve_full_msg_from_prefix(msg_prefix::String)
-    the_keys = collect(keys(StaticLint.is_recommendation))
-    is = findall(startswith(msg_prefix), the_keys)
+    function _tmp(msg::String, should_remove_backquote::Bool)
+        the_keys = collect(keys(StaticLint.is_recommendation))
+        if should_remove_backquote
+            the_keys = map(l->replace(l, "`" => ""), the_keys)
+        end
+        is = findall(startswith(msg_prefix), the_keys)
 
-    length(is) == 0 && return is
+        length(is) == 0 && return is
 
-    if length(is) != 1
-        isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        if length(is) != 1
+            isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        end
+        @assert length(is) == 1
+        return the_keys[first(is)]
     end
-    @assert length(is) == 1
-    return the_keys[first(is)]
+
+    isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    t = _tmp(msg_prefix, false)
+    isempty(t) || return t
+
+    t = _tmp(replace(msg_prefix, "`" => ""), true)
+    return t
 end
 
 function get_recommendation(msg_prefix)
