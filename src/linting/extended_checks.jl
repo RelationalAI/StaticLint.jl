@@ -557,6 +557,9 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     contains(markers[:filename], "src/FrontIR") && return
     # Also, allow usages in tests
     contains(markers[:filename], "test/") && return
+    # Also, allow usages of the name `Shape` in `packages/` although they refer to a different thing.
+    contains(markers[:filename], "packages/RAI_Protos/src/proto/metadata.proto") && return
+    contains(markers[:filename], "packages/RAI_Protos/src/gen/relationalai/protocol/metadata_pb.jl") && return
 
     generic_check(t, x, "shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
     generic_check(t, x, "Front.shape_term(hole_variable_star)", "Usage of `shape_term` Shape API method is not allowed outside of the Front-end Compiler and FFI.")
