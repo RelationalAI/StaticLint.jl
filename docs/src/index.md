@@ -44,7 +44,7 @@ For a given expression `x` this pass will:
 * Special handling for macros introducing new bindings as necessary, at the moment limited to `deprecate`, `enum`, `goto`, `label`, and `nospecialize`.
 * Adds new scopes for the interior of `x` as needed (`scopes`).
 * Resolves references for identifiers (i.e. a variable name), macro name, keywords in function signatures and dotted names (e.g. `A.B.c`). A name is first checked against bindings introduced within a scope then against exported variables of modules loaded into the scope. If this fails to resolve the name this is repeated for the parent scope. References that fail to resolve at this point, and are within a delayed scope (i.e. within a function) are added to a list to be resolved later.
-* DISABLE PASS: If `x` is a call to `include(path_expr)` attempt to resolve `path_expr` to a loadable file from `state.server` and pass across the files ST (`followinclude`).
+* DISABLED PASS: If `x` is a call to `include(path_expr)` attempt to resolve `path_expr` to a loadable file from `state.server` and pass across the files ST (`followinclude`).
 * Traverse across child nodes of `x` (`traverse`) in execution order. This means, for example, that in the expression `a = b` we traverse `b` then `a` (ignoring the operator).
 
 ### Server
