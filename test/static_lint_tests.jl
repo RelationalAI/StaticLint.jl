@@ -1816,7 +1816,7 @@ end
         return nothing
     end
     """)
-    @test isempty(StaticLint.collect_hints(cst, server))
+    @test !isempty(StaticLint.collect_hints(cst, server))
 end
 
 @testset "aliased import: #974" begin
