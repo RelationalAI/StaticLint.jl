@@ -2026,6 +2026,8 @@ end
 
         @warnv @safe("Safe logging $(x)")
         @warnv @safe("Safe logging")
+        @warnv @safe("Safe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
+
     end
     """
     @test count_lint_errors(source) == 12
