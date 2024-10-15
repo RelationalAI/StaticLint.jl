@@ -212,6 +212,7 @@ struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
+struct LogStatementsMustBeSafe <: ViolationExtendedRule end
 
 
 const all_extended_rule_types = Ref{Any}(
@@ -310,6 +311,7 @@ function generic_check(T::DataType, x::EXPR, template_code::String)
     return generic_check(T, x, template_code, "`$(keyword)` should be used with extreme caution.")
 end
 
+# IT IS NECESSARY TO CALL THIS FUNCTION IN A CHECK FUNCTION THAT DOES NOT USE GENERIC_CHECK
 function check_for_recommendation(T::DataType, msg::String)
     @assert supertype(T) in [RecommendationExtendedRule, ViolationExtendedRule]
     b = supertype(T) == RecommendationExtendedRule
@@ -578,3 +580,53 @@ function check(t::UseOfStaticThreads, x::EXPR)
     generic_check(t, x, "@threads :static hole_variable_star", msg)
     generic_check(t, x, "Threads.@threads :static hole_variable_star", msg)
 end
+
+function all_arguments_are_safe(x::EXPR)
+    is_safe_macro_call(y) =
+        y.head == :macrocall && y.args[1].head == :IDENTIFIER && y.args[1].val == "@safe"
+
+    for arg in x.args[2:end]
+        # This is safe
+        if is_safe_macro_call(arg) ||
+            arg.head == :NOTHING
+
+            continue
+        elseif arg.head isa CSTParser.EXPR && arg.head.head == :OPERATOR && arg.head.val == "=" &&
+            is_safe_macro_call(arg.args[2])
+
+            continue
+        else
+            # @info x arg
+            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+            return false
+        end
+    end
+    return true
+end
+
+function check(t::LogStatementsMustBeSafe, x::EXPR)
+    msg = "Unsafe logging statement. You must enclose variables and strings with @safe(...)."
+    check_for_recommendation(LogStatementsMustBeSafe, msg)
+
+    # @info and its friends
+    if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@info")
+        all_arguments_are_safe(x) || seterror!(x, msg)
+    end
+
+    # @debug and its friends
+    if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@debug")
+        all_arguments_are_safe(x) || seterror!(x, msg)
+    end
+
+    # @error and its friends
+    if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@error")
+        all_arguments_are_safe(x) || seterror!(x, msg)
+    end
+
+    # @warn and its friends
+    if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@warn")
+        # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        all_arguments_are_safe(x) || seterror!(x, msg)
+    end
+end
+

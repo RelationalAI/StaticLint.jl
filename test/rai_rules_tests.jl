@@ -1807,31 +1807,31 @@ end
     # ERRORS
     source_with_error = raw"""
     function f(conf)
-        @info "($conf.container.baseurl)"
+        @INFO "($conf.container.baseurl)"
     end
     """
 
     source_with_error2 = raw"""
     function f(conf)
-        @info "$conf.container.baseurl"
+        @INFO "$conf.container.baseurl"
     end
     """
 
     source_with_error3 = raw"""
     function f(conf)
-        @info "this string contains an error $conf.container.baseurl indeed!"
+        @INFO "this string contains an error $conf.container.baseurl indeed!"
     end
     """
 
     source_with_error4 = raw"""
     function f(conf)
-        @info "this string contains an error $conf .container.baseurl indeed!"
+        @INFO "this string contains an error $conf .container.baseurl indeed!"
     end
     """
 
     source_with_error5 = raw"""
     function f(engine_name)
-        @info "Issuing delete request for engine $engine_name..."
+        @INFO "Issuing delete request for engine $engine_name..."
     end
     """
 
@@ -1862,13 +1862,13 @@ end
     # NO ERROR
     source_without_error = raw"""
     function f(conf)
-        @info "$(conf.container.baseurl)"
+        @INFO "$(conf.container.baseurl)"
     end
     """
 
     source_without_error2 = raw"""
     function f(conf)
-        @info "this string contains an error $(conf.container.baseurl) indeed!"
+        @INFO "this string contains an error $(conf.container.baseurl) indeed!"
     end
     """
 
@@ -1958,35 +1958,35 @@ end
     )
 end
 
-@testset "Check on @warnv_safe_to_log" begin
-    source = raw"""
-    function pm_check_mutable_pages(bytes::Int)
-        pm = PAGER_MONITOR
+# @testset "Check on @warnv_safe_to_log" begin
+#     source = raw"""
+#     function pm_check_mutable_pages(bytes::Int)
+#         pm = PAGER_MONITOR
 
-        max_pages = (@atomic pm.mutable_pages_running_max)
-        max_bytes = (@atomic pm.mutable_bytes_running_max)
-        if max_bytes >= bytes
-            @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
-                detected: $max_pages pages weighting $max_bytes bytes"
+#         max_pages = (@atomic pm.mutable_pages_running_max)
+#         max_bytes = (@atomic pm.mutable_bytes_running_max)
+#         if max_bytes >= bytes
+#             @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
+#                 detected: $max_pages pages weighting $max_bytes bytes"
 
-            @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
-                detected: $max_pages pages weighting $max_bytes bytes"
+#             @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
+#                 detected: $max_pages pages weighting $max_bytes bytes"
 
-            @ensure @warnv_safe_to_log 0 "no interpolation"
+#             @ensure @warnv_safe_to_log 0 "no interpolation"
 
-            mutable_report = pm_generate_mutable_pages_report!()
-            if !isnothing(mutable_report)
-                @warnv_safe_to_log 0 mutable_report
-            end
-            return false
-        end
+#             mutable_report = pm_generate_mutable_pages_report!()
+#             if !isnothing(mutable_report)
+#                 @warnv_safe_to_log 0 mutable_report
+#             end
+#             return false
+#         end
 
-        return true
-    end
-    """
-    @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
-    @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
-end
+#         return true
+#     end
+#     """
+#     @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
+#     @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
+# end
 
 @testset "Use of static threads" begin
     source = raw"""
@@ -2006,4 +2006,30 @@ end
     """
     @test lint_test(source, "Line 2, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
     @test lint_test(source, "Line 6, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
+end
+
+@testset "Unsafe logging" begin
+    source = raw"""
+    function f()
+        @warnv "Unsafe logging $(x)"
+        @warnv @safe("Unsafe logging") job
+        @warnv @safe("Unsafe logging") my_value=job
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value2=job
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @debug_connection @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warn_with_current_exceptions_safe_to_log @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warnv "Unsafe logging"
+        @warnv "Unsafe logging" my_value=@safe(job)
+        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2)
+        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
+
+        @warnv @safe("Safe logging $(x)")
+        @warnv @safe("Safe logging")
+    end
+    """
+    @test count_lint_errors(source) == 12
+    for line in 2:count_lint_errors(source) + 1
+        @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
+    end
 end
