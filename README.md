@@ -6,7 +6,7 @@ StaticLint is a static code analyzer for Julia. It searches for patterns in Juli
 
 This section lists the addition, modification, and removal of lint rules. This is useful for explaining variations in the [StaticLint dashboard](https://app.datadoghq.com/dashboard/a68-4u2-rs4/staticlint-dashboard?fromUser=false&refresh_mode=sliding&from_ts=1726390684921&to_ts=1728982684921&live=true).
 
-- 2024-10-15: Safe logging lint rules. [URL](https://relationalai.slack.com/archives/C07JDR32FG8/p1728659894454119)
+- 2024-10-15: Safe logging lint rules. [URL](https://relationalai.slack.com/archives/C07JDR32FG8/p1728659894454119), [PR](https://github.com/RelationalAI/StaticLint.jl/pull/85/files)
 
 ## Installing and Running StaticLint 
 
