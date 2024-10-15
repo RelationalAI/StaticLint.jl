@@ -2,6 +2,12 @@
 
 StaticLint is a static code analyzer for Julia. It searches for patterns in Julia source code, such patterns aiming to indicate issues and deserve to be reported to the end-user.
 
+## History
+
+This section lists the addition, modification, and removal of lint rules. This is useful for explaining variations in the [StaticLint dashboard](https://app.datadoghq.com/dashboard/a68-4u2-rs4/staticlint-dashboard?fromUser=false&refresh_mode=sliding&from_ts=1726390684921&to_ts=1728982684921&live=true).
+
+- 2024-10-15: Safe logging lint rules. [URL](https://relationalai.slack.com/archives/C07JDR32FG8/p1728659894454119)
+
 ## Installing and Running StaticLint 
 
 Installing and running StaticLint.jl is easy. You just need to clone this repository _outside_ the Julia project you would like to analyze. Although you add it as a dependency, there is no good reason to mess up with your local `Project.toml` and `Manifest.toml`. 
