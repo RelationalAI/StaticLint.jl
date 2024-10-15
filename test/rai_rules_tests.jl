@@ -2012,28 +2012,24 @@ end
     source = raw"""
     function f()
         @warnv "Unsafe logging $(x)"
-        @warnv "Unsafe logging" job
-        @warnv "Unsafe logging" my_value=job
-        @warnv "Unsafe logging" my_value=@safe(job) my_value2=job
-        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
-        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
-        @debug_connection "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
-        @warn_with_current_exceptions_safe_to_log "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warnv @safe("Unsafe logging") job
+        @warnv @safe("Unsafe logging") my_value=job
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value2=job
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @debug_connection @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warn_with_current_exceptions_safe_to_log @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warnv "Unsafe logging"
+        @warnv "Unsafe logging" my_value=@safe(job)
+        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2)
+        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
 
         @warnv @safe("Safe logging $(x)")
-        @warnv "This is a safe log"
-        @warnv "Safe logging" my_value=@safe(job)
-        @warnv "Safe logging" my_value=@safe(job) my_value=@safe(job2)
-        @warnv "Safe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
+        @warnv @safe("Safe logging")
     end
     """
-    @test count_lint_errors(source) == 8
-    @test lint_test(source, "Line 2, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 3, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 4, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 5, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 6, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 7, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 8, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
-    @test lint_test(source, "Line 9, column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
+    @test count_lint_errors(source) == 12
+    for line in 2:count_lint_errors(source) + 1
+        @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
+    end
 end
