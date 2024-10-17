@@ -605,7 +605,7 @@ function all_arguments_are_safe(x::EXPR)
 end
 
 function check(t::LogStatementsMustBeSafe, x::EXPR)
-    msg = "Unsafe logging statement. You must enclose variables and strings with @safe(...)."
+    msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
     check_for_recommendation(LogStatementsMustBeSafe, msg)
 
     # @info and its friends

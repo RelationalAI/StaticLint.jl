@@ -2040,6 +2040,6 @@ end
     """
     @test count_lint_errors(source) == 12
     for line in 2:count_lint_errors(source) + 1
-        @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with @safe(...).")
+        @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with `@safe(...)`.")
     end
 end
