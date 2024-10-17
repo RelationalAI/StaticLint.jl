@@ -2026,6 +2026,14 @@ end
 
         @warnv @safe("Safe logging $(x)")
         @warnv @safe("Safe logging")
+
+        @infov @safe(1) @safe(
+                 "[Compilation] \
+                 Creating a new BeTreeV2 specialization: $(K) and $(V) where eps = $(E) \n\
+                 List of all encountered types so far \
+                 (total: $(length(UNIQUE_BETREE_TYPES))): \n\
+                 $(total_report)"
+             ) total = @safe(length(UNIQUE_BETREE_TYPES))
     end
     """
     @test count_lint_errors(source) == 12
