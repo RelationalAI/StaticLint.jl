@@ -2011,23 +2011,25 @@ end
 @testset "Unsafe logging" begin
     source = raw"""
     function f()
-        @warnv "Unsafe logging $(x)"
-        @warnv @safe("Unsafe logging") job
-        @warnv @safe("Unsafe logging") my_value=job
-        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value2=job
-        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
-        @warnv @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @info "Unsafe logging $(x)"
+        @info @safe("Unsafe logging") job
+        @info @safe("Unsafe logging") my_value=job
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value2=job
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
         @debug_connection @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
         @warn_with_current_exceptions_safe_to_log @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
-        @warnv "Unsafe logging"
-        @warnv "Unsafe logging" my_value=@safe(job)
-        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2)
-        @warnv "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
+        @info "Unsafe logging"
+        @info "Unsafe logging" my_value=@safe(job)
+        @info "Unsafe logging" my_value=@safe(job) my_value=@safe(job2)
+        @info "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
 
-        @warnv @safe("Safe logging $(x)")
-        @warnv @safe("Safe logging")
+        @info @safe("Safe logging $(x)")
+        @info @safe("Safe logging")
 
-        @infov @safe(1) @safe(
+        @warnv 1 @safe("Safe logging")
+
+        @infov 1 @safe(
                  "[Compilation] \
                  Creating a new BeTreeV2 specialization: $(K) and $(V) where eps = $(E) \n\
                  List of all encountered types so far \
