@@ -9,13 +9,15 @@ mutable struct LintResult
     recommendations_count::Integer
     linted_files::Vector{String}
     printout_count::Integer
+    has_fatal_hint::Bool
 
-    LintResult(a, b, c, d, e) = new(a, b, c, d, e)
+    LintResult(a, b, c, d, e, f) = new(a, b, c, d, e, f)
 end
 
-LintResult() = LintResult(0, 0, 0, String[], 0)
+LintResult() = LintResult(0, 0, 0, String[], 0, false)
 LintResult(a, b, c) = LintResult(a, b, c, String[])
-LintResult(a, b, c, d) = LintResult(a, b, c, d, 0)
+LintResult(a, b, c, d) = LintResult(a, b, c, d, 0, false)
+LintResult(a, b, c, d, e) = LintResult(a, b, c, d, e, false)
 
 # function Base.:+(l1::LintResult, l2::LintResult)
 #     return LintResult(
@@ -254,6 +256,12 @@ struct MarkdownFormat <: AbstractFormatter
     MarkdownFormat(branch::String, repo::String) = new(branch, repo, "", devnull)
 end
 
+# Being fatal means the lint process will exit(1) when run from pre-commit
+function is_fatal(hint::String)
+    patterns = ["Unsafe", "@safe"]
+    return any(p->contains(hint, p), patterns)
+end
+
 """
     filter_and_print_hint(...)
 
@@ -272,6 +280,11 @@ function filter_and_print_hint(
     filters::Vector{LintCodes}=LintCodes[],
     formatter::AbstractFormatter=PlainFormat(),
 )
+    # If fatal, then indicate this in the result
+    if is_fatal(hint_as_string)
+        lint_result.has_fatal_hint = true
+    end
+
     # Filter along the message
     should_be_filtered(hint_as_string, filters) && return false
 
