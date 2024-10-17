@@ -2043,3 +2043,8 @@ end
         @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with `@safe(...)`.")
     end
 end
+
+@testset "Fatal hint" begin
+    @test StaticLint.is_fatal("Unsafe logging statement. You must")
+    @test !StaticLint.is_fatal("Use `Threads.@threads :dynamic` instead of")
+end
