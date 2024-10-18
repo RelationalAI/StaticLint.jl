@@ -83,7 +83,13 @@ const LintCodeDescriptions = Dict{LintCodes,String}(
 
 haserror(m::Meta) = m.error !== nothing
 haserror(x::EXPR) = hasmeta(x) && haserror(x.meta)
-errorof(x::EXPR) = hasmeta(x) ? x.meta.error : nothing
+function errorof(x::EXPR)
+    if hasmeta(x)
+        return x.meta.error isa LintRuleReport ? x.meta.error.msg : x.meta.error
+    end
+    return nothing
+end
+
 function seterror!(x::EXPR, e)
     if !hasmeta(x)
         x.meta = Meta()

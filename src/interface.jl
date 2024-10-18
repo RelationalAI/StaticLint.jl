@@ -14,6 +14,16 @@ mutable struct LintResult
     LintResult(a, b, c, d, e, f) = new(a, b, c, d, e, f)
 end
 
+mutable struct LintRuleReport
+    rule::ExtendedRule
+    msg::String
+    template::String
+    file::String
+    line::Int64
+    column::Int64
+end
+LintRuleReport(rule::ExtendedRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0)
+
 LintResult() = LintResult(0, 0, 0, String[], 0, false)
 LintResult(a, b, c) = LintResult(a, b, c, String[])
 LintResult(a, b, c, d) = LintResult(a, b, c, d, 0, false)
@@ -126,8 +136,11 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
             hints_for_file = []
             for (offset, x) in collect_hints(f.cst, getenv(f, server))
                 if haserror(x)
+                    # TODO: On some point, we should only have the LintRuleReport case
                     if x.meta.error isa String
                         push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
+                    elseif x.meta.error isa LintRuleReport
+                        push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", p)))
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
                     end

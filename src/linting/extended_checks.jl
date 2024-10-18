@@ -298,7 +298,7 @@ end
 
 function generic_check(T::DataType, x::EXPR, template_code::String, error_msg::String)
     error_msg isa String && get!(error_msgs, template_code, error_msg)
-    does_match(x, template_code) && seterror!(x, error_msg)
+    does_match(x, template_code) && seterror!(x, LintRuleReport(T(), error_msg))
     check_for_recommendation(T, error_msg)
 end
 
@@ -527,8 +527,8 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
-    msg_error = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
-    check_for_recommendation(typeof(t), msg_error)
+    error_msg = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
+    check_for_recommendation(typeof(t), error_msg)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
 
@@ -536,7 +536,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     dollars_count = length(filter(q->q.head == :OPERATOR && q.val == raw"$", x.trivia))
 
     open_parent_count = length(filter(q->q.head == :LPAREN, x.trivia))
-    open_parent_count != dollars_count && seterror!(x, msg_error)
+    open_parent_count != dollars_count && seterror!(x, LintRuleReport(t, error_msg))
 end
 
 function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
@@ -605,28 +605,28 @@ function all_arguments_are_safe(x::EXPR)
 end
 
 function check(t::LogStatementsMustBeSafe, x::EXPR)
-    msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
-    check_for_recommendation(LogStatementsMustBeSafe, msg)
+    error_msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
+    check_for_recommendation(LogStatementsMustBeSafe, error_msg)
 
     # @info and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@info")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @debug and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@debug")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @error and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@error")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @warn and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@warn")
         # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 end
 
