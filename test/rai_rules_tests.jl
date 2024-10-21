@@ -1,6 +1,6 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
     convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
-    fetch_value, rule_is_recommendation, rule_is_violation, has_values
+    fetch_value, has_values
 
 using StaticLint: LintResult
 import CSTParser
@@ -1725,57 +1725,16 @@ end
     run_lint_on_text(source; io=IOBuffer())
 
     @test !isempty(StaticLint.check_cache)
-    @test !isempty(StaticLint.error_msgs)
+    # @test !isempty(StaticLint.error_msgs)
     @test !isempty(StaticLint.is_recommendation)
 
     StaticLint.reset_static_lint_caches()
 
     @test isempty(StaticLint.check_cache)
-    @test isempty(StaticLint.error_msgs)
+    # @test isempty(StaticLint.error_msgs)
 
     # is_recommendation should contains Lint default rules that we want to consider
     @test !isempty(StaticLint.is_recommendation)
-end
-
-@testset "Recommandation vs violation" begin
-    source = """
-    function f()
-        @async 1 + 1
-    end
-    function g()
-        @lock Lock() begin
-            1 + 1
-        end
-    end
-    """
-    io=IOBuffer()
-    run_lint_on_text(source; io)
-
-    @test !rule_is_recommendation("Use `@spawn` instead of `@async`.")
-    @test !rule_is_recommendation("Use `@spawn`")
-    @test  rule_is_violation("Use `@spawn` instead of `@async`.")
-    @test  rule_is_violation("Use `@spawn`")
-    @test  rule_is_recommendation("`@lock` should be used with extreme caution.")
-    @test  rule_is_recommendation("`@lock` ")
-    @test !rule_is_violation("`@lock` should be used with extreme caution.")
-    @test !rule_is_violation("`@lock` ")
-
-    @test  rule_is_recommendation("Splatting (`...`) should be used with extreme caution.")
-
-
-    @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
-        "`@lock` should be used with extreme caution."
-    @test StaticLint.retrieve_full_msg_from_prefix("Use `@spawn`") ==
-        "Use `@spawn` instead of `@async`."
-
-    msg = "Use `@spawn` instead of `@async`."
-    @test StaticLint.retrieve_full_msg_from_prefix(msg) == msg
-end
-
-@testset "Recommandation vs violation - Default error msg" begin
-    @test rule_is_violation("Variable has been assigned but not used")
-    @test rule_is_violation("Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`.")
-    @test !rule_is_recommendation("Variable has been assigned but not used")
 end
 
 @testset "Recommentation separated from violations" begin

@@ -303,91 +303,6 @@ end
 
 should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
 
-
-"""
-@@TODO: THIS FUNCTION MUST BE REMOVED, LEGACY
-
-    filter_and_print_hint(...)
-
-Essential function to filter and print a `hint_as_string`, being a String.
-Return true if the hint was printed, else it was filtered.
-It takes the following arguments:
-    - `hint_as_string` to be filtered or printed
-    - `io` stream where the hint is printed, if not filtered
-    - `filters` the set of filters to be used
-    - `lint_result` is the current lint result. We used it to limit the produced report.
-"""
-function filter_and_print_hint(
-    hint_as_string::String,
-    lint_result::LintResult,
-    io::IO=stdout,
-    filters::Vector{LintCodes}=LintCodes[],
-    formatter::AbstractFormatter=PlainFormat(),
-)
-    # If fatal, then indicate this in the result
-    if is_fatal(hint_as_string)
-        lint_result.has_fatal_hint = true
-    end
-
-    # Filter along the message
-    should_be_filtered(hint_as_string, filters) && return false
-
-    # Filter along the file content
-    ss = split(hint_as_string)
-    has_filename = isfile(last(ss))
-    has_filename || error("Should have a filename")
-
-    filename = string(last(ss))
-
-    offset_as_string = ss[length(ss) - 2]
-    # +1 is because CSTParser gives offset starting at 0.
-    offset = Base.parse(Int64, offset_as_string) + 1
-
-    # Remove the offset from the result. No need for this.
-    cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
-
-    should_print_hint(result) = result.printout_count <= MAX_REPORTED_ERRORS
-    try
-        line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
-
-        has_no_annotation = isnothing(annotation_line)
-        if has_no_annotation
-            # No annotation, so we merely print the reported error.
-            if should_print_hint(lint_result)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        else
-            # there is an annotation, we need to distinguish if it is specific or not
-            is_generic_disable_annotation = annotation_line == "lint-disable-line"
-            if is_generic_disable_annotation
-                return false
-            end
-
-            v = match(r"lint-disable-line: (?<msg>.*)$", annotation_line)
-            msg = isnothing(v) ? nothing : v[:msg]
-
-            # if it is specific, and the reported error is different from the provided error
-            # then we report the error
-            if !isnothing(msg) && startswith(cleaned_hint, msg)
-                return false
-            end
-
-            if should_print_hint(lint_result)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        end
-    catch e
-        @assert e isa BoundsError
-        @error "Cannot retrieve offset=$(offset) in file $(filename)"
-    end
-    return false
-end
-
-
 function _run_lint_on_dir(
     rootpath::String;
     result::LintResult=LintResult(),
@@ -558,10 +473,8 @@ function run_lint(
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,hints,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
-    # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+    _,_,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
     print_header(formatter, io, rootpath)
-
 
     is_violation(r::LintRuleReport) = r.rule isa ViolationExtendedRule
     is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
@@ -572,10 +485,6 @@ function run_lint(
 
     count_violations = length(violation_reports)
     count_recommendations = length(recommandations_reports)
-
-    # function print_report(io::IO, report::LintRuleReport)
-    #     write(io, "Line $(report.line), column $(report.column): $(report.msg) $(report.file)\n")
-    # end
 
     io_tmp = isnothing(io_violations) ? io : io_violations
     for r in violation_reports
@@ -592,40 +501,6 @@ function run_lint(
             result.printout_count += 1
         end
     end
-
-
-
-    # hint_as_strings = map(l -> l[2], hints)
-    # hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
-    # function extract_msg_from_hint(m)
-    #     r = match(r"(?<msg>.+)[\.\?] \H+", m)
-
-    #     # We are now reaching a bug HERE
-    #     if isnothing(r)
-    #         @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
-    #         return "ERROR"
-    #     end
-
-    #     return r[:msg] * "."
-    # end
-
-    # @assert all(h -> typeof(h) == String, hint_as_strings)
-
-    # # NO MORE THAN 30 VIOLATIONS AND 30 PR RECOMMENDATIONS
-    # violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
-    # recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
-
-    # io_tmp = isnothing(io_violations) ? io : io_violations
-    # filtered_and_printed_hints_violations =
-    #     filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), violation_hints)
-
-    # io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-
-    # filtered_and_printed_hints_recommandations =
-    #     filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), recommendation_hints)
-
-    # count_violations = length(filtered_and_printed_hints_violations)
-    # count_recommendations = length(filtered_and_printed_hints_recommandations)
 
     # We run Lint on a single file.
     append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
