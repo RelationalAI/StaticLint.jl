@@ -172,6 +172,12 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
     if opts.extended
         for T in all_extended_rule_types[]
             check_with_process(T, x, markers)
+            if haserror(x) && x.meta.error isa LintRuleReport
+                lint_rule_report = x.meta.error
+                if haskey(markers, :filename)
+                    lint_rule_report.file = markers[:filename]
+                end
+            end
         end
     end
 
@@ -1046,7 +1052,8 @@ function check_unused_binding(b::Binding, scope::Scope)
         if (isempty(refs) || length(refs) == 1 && refs[1] == b.name) &&
                 !is_sig_arg(b.name) && !is_overwritten_in_loop(b.name) &&
                 !is_overwritten_subsequently(b, scope) && !is_kw_of_macrocall(b)
-            seterror!(b.name, UnusedBinding)
+            # seterror!(b.name, UnusedBinding)
+            seterror!(b.name, LintRuleReport(UnaccountedRule(), "Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."))
         end
     end
 end

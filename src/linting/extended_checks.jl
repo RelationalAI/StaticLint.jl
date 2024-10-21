@@ -170,6 +170,11 @@ end
 abstract type ExtendedRule end
 abstract type RecommendationExtendedRule <: ExtendedRule end
 abstract type ViolationExtendedRule <: ExtendedRule end
+abstract type FatalExtendedRule <: ExtendedRule end
+
+# Useful to bridge old staticlint with ours.
+struct UnaccountedRule <: ViolationExtendedRule end
+check(::UnaccountedRule, msg) = nothing
 
 struct Async_Extention <: ViolationExtendedRule end
 struct Ccall_Extention <: RecommendationExtendedRule end

@@ -1014,6 +1014,7 @@ end
                          - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
 
+
                         <details>
                         <summary>For PR Reviewer \(1\)</summary>
 
