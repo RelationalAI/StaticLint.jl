@@ -170,6 +170,11 @@ end
 abstract type ExtendedRule end
 abstract type RecommendationExtendedRule <: ExtendedRule end
 abstract type ViolationExtendedRule <: ExtendedRule end
+abstract type FatalExtendedRule <: ExtendedRule end
+
+# Useful to bridge old staticlint with ours.
+struct UnaccountedRule <: ViolationExtendedRule end
+check(::UnaccountedRule, msg) = nothing
 
 struct Async_Extention <: ViolationExtendedRule end
 struct Ccall_Extention <: RecommendationExtendedRule end
@@ -214,7 +219,6 @@ struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
 struct LogStatementsMustBeSafe <: ViolationExtendedRule end
 
-
 const all_extended_rule_types = Ref{Any}(
     vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
@@ -225,64 +229,13 @@ const all_extended_rule_types = Ref{Any}(
 # template -> EXPR to be compared
 const check_cache = Dict{String, CSTParser.EXPR}()
 
-# template -> error_msg
-const error_msgs = Dict{String, String}()
-
-function reset_recommentation_dict!(d::Dict{String, Bool})
-    # Violations
-    d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
-    d[raw"Use $(x) instead of $x"] = false
-end
-
-function initialize_recommentation_dict()
-    r = Dict{String, Bool}()
-    reset_recommentation_dict!(r)
-    return r
-end
-
-# msg -> is recommendation
-const is_recommendation = initialize_recommentation_dict()
-
 function reset_static_lint_caches()
     empty!(check_cache)
-    empty!(error_msgs)
-    reset_recommentation_dict!(is_recommendation)
     all_extended_rule_types[] = vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
         InteractiveUtils.subtypes(ViolationExtendedRule),
         )
     return nothing
-end
-
-function retrieve_full_msg_from_prefix(msg_prefix::String)
-    the_keys = collect(keys(StaticLint.is_recommendation))
-    is = findall(startswith(msg_prefix), the_keys)
-
-    length(is) == 0 && return is
-
-    if length(is) != 1
-        isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-    end
-    @assert length(is) == 1
-    return the_keys[first(is)]
-end
-
-function get_recommendation(msg_prefix)
-    m = retrieve_full_msg_from_prefix(msg_prefix)
-    m in keys(is_recommendation) || return nothing
-    return is_recommendation[m]
-end
-
-function rule_is_recommendation(msg_prefix::String)
-    r = get_recommendation(msg_prefix)
-    isnothing(r) && return false
-    return r
-end
-
-function rule_is_violation(msg_prefix::String)
-    r = get_recommendation(msg_prefix)
-    isnothing(r) && return false
-    return !r
 end
 
 function get_oracle_ast(template_code::String)
@@ -297,9 +250,7 @@ function generic_check(t::ExtendedRule, x::EXPR, template_code::String, error_ms
 end
 
 function generic_check(T::DataType, x::EXPR, template_code::String, error_msg::String)
-    error_msg isa String && get!(error_msgs, template_code, error_msg)
-    does_match(x, template_code) && seterror!(x, error_msg)
-    check_for_recommendation(T, error_msg)
+    does_match(x, template_code) && seterror!(x, LintRuleReport(T(), error_msg))
 end
 
 function generic_check(t::ExtendedRule, x::EXPR, template_code::String)
@@ -309,14 +260,6 @@ end
 function generic_check(T::DataType, x::EXPR, template_code::String)
     keyword = first(split(template_code, ['(', '{', ' ']))
     return generic_check(T, x, template_code, "`$(keyword)` should be used with extreme caution.")
-end
-
-# IT IS NECESSARY TO CALL THIS FUNCTION IN A CHECK FUNCTION THAT DOES NOT USE GENERIC_CHECK
-function check_for_recommendation(T::DataType, msg::String)
-    @assert supertype(T) in [RecommendationExtendedRule, ViolationExtendedRule]
-    b = supertype(T) == RecommendationExtendedRule
-    get!(is_recommendation, msg, b)
-    return nothing
 end
 
 function check_with_process(T::DataType, x::EXPR, markers::Dict{Symbol,String})
@@ -527,8 +470,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
-    msg_error = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
-    check_for_recommendation(typeof(t), msg_error)
+    error_msg = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
 
@@ -536,7 +478,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     dollars_count = length(filter(q->q.head == :OPERATOR && q.val == raw"$", x.trivia))
 
     open_parent_count = length(filter(q->q.head == :LPAREN, x.trivia))
-    open_parent_count != dollars_count && seterror!(x, msg_error)
+    open_parent_count != dollars_count && seterror!(x, LintRuleReport(t, error_msg))
 end
 
 function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
@@ -605,28 +547,27 @@ function all_arguments_are_safe(x::EXPR)
 end
 
 function check(t::LogStatementsMustBeSafe, x::EXPR)
-    msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
-    check_for_recommendation(LogStatementsMustBeSafe, msg)
+    error_msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
 
     # @info and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@info")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @debug and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@debug")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @error and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@error")
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 
     # @warn and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@warn")
         # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-        all_arguments_are_safe(x) || seterror!(x, msg)
+        all_arguments_are_safe(x) || seterror!(x, LintRuleReport(t, error_msg))
     end
 end
 

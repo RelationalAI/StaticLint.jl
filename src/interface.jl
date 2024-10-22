@@ -3,6 +3,7 @@ using JSON3
 
 global MAX_REPORTED_ERRORS = 60 # 1_000_000
 
+# Global result of executing Lint on files and folders
 mutable struct LintResult
     files_count::Integer
     violations_count::Integer
@@ -13,6 +14,20 @@ mutable struct LintResult
 
     LintResult(a, b, c, d, e, f) = new(a, b, c, d, e, f)
 end
+
+# Each individual rule violation report
+mutable struct LintRuleReport
+    rule::ExtendedRule
+    msg::String
+    template::String
+    file::String
+    line::Int64
+    column::Int64
+    is_disabled::Bool   # Happens with a comments in the code
+
+    offset::Int64
+end
+LintRuleReport(rule::ExtendedRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0, false, 0)
 
 LintResult() = LintResult(0, 0, 0, String[], 0, false)
 LintResult(a, b, c) = LintResult(a, b, c, String[])
@@ -120,14 +135,36 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     for f in values(server.files)
         check_all(f.cst, essential_options, getenv(f, server), markers)
     end
+    lint_rule_reports = []
     if gethints
         hints = []
         for (p,f) in server.files
             hints_for_file = []
             for (offset, x) in collect_hints(f.cst, getenv(f, server))
                 if haserror(x)
+                    # TODO: On some point, we should only have the LintRuleReport case
                     if x.meta.error isa String
                         push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
+                    elseif x.meta.error isa LintRuleReport
+                        # The next line should be deleted
+                        push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", p)))
+
+                        lint_rule_report = x.meta.error
+                        lint_rule_report.offset = offset
+
+                        line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
+                        lint_rule_report.line = line_number
+                        lint_rule_report.column = column
+
+                        # If the annotation is to disable lint,
+                        if annotation_line == "lint-disable-line"
+                            # then we disable it.
+                        elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
+                            # then we disable it.
+                        else
+                            # Else we record it.
+                            push!(lint_rule_reports, lint_rule_report)
+                        end
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
                     end
@@ -136,7 +173,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
             end
             append!(hints, hints_for_file)
         end
-        return root, hints
+        return root, hints, lint_rule_reports
     else
         return root
     end
@@ -228,10 +265,6 @@ function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     throw(BoundsError("source", offset))
 end
 
-function should_be_filtered(hint_as_string::String, filters::Vector{LintCodes})
-    return any(o->startswith(hint_as_string, LintCodeDescriptions[o]), filters)
-end
-
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
 
@@ -262,87 +295,7 @@ function is_fatal(hint::String)
     return any(p->contains(hint, p), patterns)
 end
 
-"""
-    filter_and_print_hint(...)
-
-Essential function to filter and print a `hint_as_string`, being a String.
-Return true if the hint was printed, else it was filtered.
-It takes the following arguments:
-    - `hint_as_string` to be filtered or printed
-    - `io` stream where the hint is printed, if not filtered
-    - `filters` the set of filters to be used
-    - `lint_result` is the current lint result. We used it to limit the produced report.
-"""
-function filter_and_print_hint(
-    hint_as_string::String,
-    lint_result::LintResult,
-    io::IO=stdout,
-    filters::Vector{LintCodes}=LintCodes[],
-    formatter::AbstractFormatter=PlainFormat(),
-)
-    # If fatal, then indicate this in the result
-    if is_fatal(hint_as_string)
-        lint_result.has_fatal_hint = true
-    end
-
-    # Filter along the message
-    should_be_filtered(hint_as_string, filters) && return false
-
-    # Filter along the file content
-    ss = split(hint_as_string)
-    has_filename = isfile(last(ss))
-    has_filename || error("Should have a filename")
-
-    filename = string(last(ss))
-
-    offset_as_string = ss[length(ss) - 2]
-    # +1 is because CSTParser gives offset starting at 0.
-    offset = Base.parse(Int64, offset_as_string) + 1
-
-    # Remove the offset from the result. No need for this.
-    cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
-
-    should_print_hint(result) = result.printout_count <= MAX_REPORTED_ERRORS
-    try
-        line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
-
-        has_no_annotation = isnothing(annotation_line)
-        if has_no_annotation
-            # No annotation, so we merely print the reported error.
-            if should_print_hint(lint_result)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        else
-            # there is an annotation, we need to distinguish if it is specific or not
-            is_generic_disable_annotation = annotation_line == "lint-disable-line"
-            if is_generic_disable_annotation
-                return false
-            end
-
-            v = match(r"lint-disable-line: (?<msg>.*)$", annotation_line)
-            msg = isnothing(v) ? nothing : v[:msg]
-
-            # if it is specific, and the reported error is different from the provided error
-            # then we report the error
-            if !isnothing(msg) && startswith(cleaned_hint, msg)
-                return false
-            end
-
-            if should_print_hint(lint_result)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        end
-    catch e
-        @assert e isa BoundsError
-        @error "Cannot retrieve offset=$(offset) in file $(filename)"
-    end
-    return false
-end
-
+should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
 
 function _run_lint_on_dir(
     rootpath::String;
@@ -378,10 +331,12 @@ function print_header(::PlainFormat, io::IO, rootpath::String)
     printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
 end
 
-function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
-    printstyled(io, coordinates, color=:green)
+function print_report(::PlainFormat, io::IO, lint_report::LintRuleReport)
+    printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
     print(io, " ")
-    println(io, hint)
+    print(io, lint_report.msg)
+    print(io, " ")
+    println(io, lint_report.file)
 end
 
 function print_summary(
@@ -423,25 +378,20 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
 end
 
-# Essential function to print a lint report using the Markdown
-# coordinates can be "Line 6, column 44:"
-function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    coord = split(coordinates, [' ', ',', ':'])
-    column_number = coord[5]
-    line_number = coord[2]
-    file_name = string(last(split(hint, " ")))
-    corrected_file_name = remove_prefix_from_filename(file_name, format)
+function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleReport)
+    corrected_file_name = remove_prefix_from_filename(lint_report.file, format)
 
+    coordinates = "Line $(lint_report.line), column $(lint_report.column):"
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
-        print(io, " - **$(extended_coordinates)** $(hint)\n")
+        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(lint_report.line))"
+        print(io, " - **$(extended_coordinates)** $(lint_report.msg) $(lint_report.file)\n")
     else
-        print(io, " - **$(coordinates)** $(hint)\n")
+        print(io, " - **$(coordinates)** $(lint_report.msg) $(lint_report.file)\n")
     end
 
     # Produce workflow command to see results in the PR file changed tab:
     # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
-    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(line_number),col=$(column_number)::$(hint)")
+    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(lint_report.line),col=$(lint_report.column)::$(lint_report.msg)")
 end
 
 print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
@@ -488,41 +438,34 @@ function run_lint(
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
-
+    _,_,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
     print_header(formatter, io, rootpath)
 
-    hint_as_strings = map(l -> l[2], hints)
-    hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
-    function extract_msg_from_hint(m)
-        r = match(r"(?<msg>.+)[\.\?] \H+", m)
+    is_violation(r::LintRuleReport) = r.rule isa ViolationExtendedRule
+    is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
+    is_fatal(r::LintRuleReport) = r.rule isa FatalExtendedRule
 
-        # We are now reaching a bug HERE
-        if isnothing(r)
-            @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
-            return "ERROR"
-        end
+    violation_reports = filter(is_violation, lint_reports)
+    recommandations_reports = filter(is_recommendation, lint_reports)
 
-        return r[:msg] * "."
-    end
-
-    @assert all(h -> typeof(h) == String, hint_as_strings)
-
-    # NO MORE THAN 30 VIOLATIONS AND 30 PR RECOMMENDATIONS
-    violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
-    recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
+    count_violations = length(violation_reports)
+    count_recommendations = length(recommandations_reports)
 
     io_tmp = isnothing(io_violations) ? io : io_violations
-    filtered_and_printed_hints_violations =
-        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), violation_hints)
+    for r in violation_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
+        end
+    end
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-
-    filtered_and_printed_hints_recommandations =
-        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), recommendation_hints)
-
-    count_violations = length(filtered_and_printed_hints_violations)
-    count_recommendations = length(filtered_and_printed_hints_recommandations)
+    for r in recommandations_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
+        end
+    end
 
     # We run Lint on a single file.
     append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
