@@ -219,7 +219,6 @@ struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
 struct LogStatementsMustBeSafe <: ViolationExtendedRule end
 
-
 const all_extended_rule_types = Ref{Any}(
     vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
@@ -230,21 +229,6 @@ const all_extended_rule_types = Ref{Any}(
 # template -> EXPR to be compared
 const check_cache = Dict{String, CSTParser.EXPR}()
 
-function reset_recommentation_dict!(d::Dict{String, Bool})
-    # Violations
-    # d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
-    # d[raw"Use $(x) instead of $x"] = false
-end
-
-function initialize_recommentation_dict()
-    r = Dict{String, Bool}()
-    reset_recommentation_dict!(r)
-    return r
-end
-
-# msg -> is recommendation
-const is_recommendation = initialize_recommentation_dict()
-
 function reset_static_lint_caches()
     empty!(check_cache)
     all_extended_rule_types[] = vcat(
@@ -253,7 +237,6 @@ function reset_static_lint_caches()
         )
     return nothing
 end
-
 
 function get_oracle_ast(template_code::String)
     get!(check_cache, template_code, CSTParser.parse(template_code))
@@ -267,9 +250,7 @@ function generic_check(t::ExtendedRule, x::EXPR, template_code::String, error_ms
 end
 
 function generic_check(T::DataType, x::EXPR, template_code::String, error_msg::String)
-    # error_msg isa String && get!(error_msgs, template_code, error_msg)
     does_match(x, template_code) && seterror!(x, LintRuleReport(T(), error_msg))
-    check_for_recommendation(T, error_msg)
 end
 
 function generic_check(t::ExtendedRule, x::EXPR, template_code::String)
@@ -279,14 +260,6 @@ end
 function generic_check(T::DataType, x::EXPR, template_code::String)
     keyword = first(split(template_code, ['(', '{', ' ']))
     return generic_check(T, x, template_code, "`$(keyword)` should be used with extreme caution.")
-end
-
-# IT IS NECESSARY TO CALL THIS FUNCTION IN A CHECK FUNCTION THAT DOES NOT USE GENERIC_CHECK
-function check_for_recommendation(T::DataType, msg::String)
-    @assert supertype(T) in [RecommendationExtendedRule, ViolationExtendedRule]
-    b = supertype(T) == RecommendationExtendedRule
-    get!(is_recommendation, msg, b)
-    return nothing
 end
 
 function check_with_process(T::DataType, x::EXPR, markers::Dict{Symbol,String})
@@ -498,7 +471,6 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     x.head == :string || return
 
     error_msg = raw"Use $(x) instead of $x ([explanation](https://github.com/RelationalAI/RAIStyle?tab=readme-ov-file#string-interpolation))."
-    check_for_recommendation(typeof(t), error_msg)
     # We iterate over the arguments of the CST String to check for STRING: (
     # if we find one, this means the string was incorrectly interpolated
 
@@ -576,7 +548,6 @@ end
 
 function check(t::LogStatementsMustBeSafe, x::EXPR)
     error_msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
-    check_for_recommendation(LogStatementsMustBeSafe, error_msg)
 
     # @info and its friends
     if x.head == :macrocall && x.args[1].head == :IDENTIFIER && startswith(x.args[1].val, "@info")

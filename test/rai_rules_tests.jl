@@ -1714,16 +1714,8 @@ end
     run_lint_on_text(source; io=IOBuffer())
 
     @test !isempty(StaticLint.check_cache)
-    # @test !isempty(StaticLint.error_msgs)
-    @test !isempty(StaticLint.is_recommendation)
-
     StaticLint.reset_static_lint_caches()
-
     @test isempty(StaticLint.check_cache)
-    # @test isempty(StaticLint.error_msgs)
-
-    # is_recommendation should contains Lint default rules that we want to consider
-    @test !isempty(StaticLint.is_recommendation)
 end
 
 @testset "Recommentation separated from violations" begin
