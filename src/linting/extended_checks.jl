@@ -232,8 +232,8 @@ const check_cache = Dict{String, CSTParser.EXPR}()
 
 function reset_recommentation_dict!(d::Dict{String, Bool})
     # Violations
-    d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
-    d[raw"Use $(x) instead of $x"] = false
+    # d["Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`."] = false
+    # d[raw"Use $(x) instead of $x"] = false
 end
 
 function initialize_recommentation_dict()

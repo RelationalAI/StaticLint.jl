@@ -1,5 +1,5 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
-    convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
+    convert_offset_to_line_from_lines, MarkdownFormat, PlainFormat,
     fetch_value, has_values
 
 using StaticLint: LintResult
@@ -767,17 +767,6 @@ end
     @test convert_offset_to_line(42, source) == (2, 29, nothing)
     @test convert_offset_to_line(46, source) == (3, 3, nothing)
 
-end
-
-@testset "Should be filtered" begin
-    filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
-    hint_as_string1 = "Missing reference. /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
-    hint_as_string2 = "Line 254, column 19: Possible method call error: foo /Users/alexandrebergel/Documents/RAI/raicode11/src/Compiler/Front/problems.jl"
-    @test should_be_filtered(hint_as_string1, filters)
-    @test !should_be_filtered(hint_as_string2, filters)
-
-    @test should_be_filtered(hint_as_string1, filters)
-    @test !should_be_filtered(hint_as_string2, filters)
 end
 
 @testset "Fetching values from AST" begin

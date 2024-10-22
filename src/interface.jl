@@ -167,8 +167,6 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
                         end
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
-
-                        isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
                     end
                     push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", p)))
                 end
@@ -267,9 +265,10 @@ function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     throw(BoundsError("source", offset))
 end
 
-function should_be_filtered(hint_as_string::String, filters::Vector{LintCodes})
-    return any(o->startswith(hint_as_string, LintCodeDescriptions[o]), filters)
-end
+# function should_be_filtered(hint_as_string::String, filters::Vector{LintCodes})
+#     isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+#     return any(o->startswith(hint_as_string, LintCodeDescriptions[o]), filters)
+# end
 
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
@@ -337,13 +336,6 @@ function print_header(::PlainFormat, io::IO, rootpath::String)
     printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
 end
 
-# TODO: REMOVE THIS LEGACY CODE
-function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
-    printstyled(io, coordinates, color=:green)
-    print(io, " ")
-    println(io, hint)
-end
-
 function print_report(::PlainFormat, io::IO, lint_report::LintRuleReport)
     printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
     print(io, " ")
@@ -389,28 +381,6 @@ end
 
 function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
-end
-
-# Essential function to print a lint report using the Markdown
-# coordinates can be "Line 6, column 44:"
-# TODO: LEGACY CODE, REMOVE IT!!!!
-function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    coord = split(coordinates, [' ', ',', ':'])
-    column_number = coord[5]
-    line_number = coord[2]
-    file_name = string(last(split(hint, " ")))
-    corrected_file_name = remove_prefix_from_filename(file_name, format)
-
-    if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
-        print(io, " - **$(extended_coordinates)** $(hint)\n")
-    else
-        print(io, " - **$(coordinates)** $(hint)\n")
-    end
-
-    # Produce workflow command to see results in the PR file changed tab:
-    # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
-    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(line_number),col=$(column_number)::$(hint)")
 end
 
 function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleReport)
