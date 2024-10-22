@@ -265,11 +265,6 @@ function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     throw(BoundsError("source", offset))
 end
 
-# function should_be_filtered(hint_as_string::String, filters::Vector{LintCodes})
-#     isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-#     return any(o->startswith(hint_as_string, LintCodeDescriptions[o]), filters)
-# end
-
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
 
