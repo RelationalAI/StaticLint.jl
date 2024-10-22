@@ -796,26 +796,6 @@ end
            end
            """
 
-    # Rules that are not violation or recommandations are not processed.
-    # @testset "Plain 01" begin
-    #     io = IOBuffer()
-    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters)
-    #     result = String(take!(io))
-
-    #     expected = r"""
-    #         ---------- \H+
-    #         Violations:
-    #         Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-    #         Line 1, column 11: Missing reference \H+
-
-    #         Recommendations:
-
-    #         1 potential threat is found: 1 violation and 0 recommendation
-    #         ----------
-    #         """
-    #     @test !isnothing(match(expected, result))
-    # end
-
     @testset "Plain 02" begin
         io = IOBuffer()
         run_lint_on_text(source; io=io, filters=StaticLint.essential_filters)
@@ -824,29 +804,11 @@ end
         expected = r"""
             ---------- \H+
             Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-            1 potential threat is found: 1 violation and 0 recommendation
+            1 potential threat is found: 0 fatal violation, 1 violation and 0 recommendation
             ----------
             """
         @test !isnothing(match(expected, result))
     end
-
-    # Rules that are not violation or recommandations are not processed.
-    # @testset "Markdown 01" begin
-    #     io = IOBuffer()
-    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters, formatter=MarkdownFormat())
-    #     result = String(take!(io))
-
-    #     expected = r"""
-    #         Violations:
-    #          - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-    #          - \*\*Line 1, column 11:\*\* Missing reference. \H+
-
-    #         Recommendations:
-
-    #         """
-    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-    #     @test !isnothing(match(expected, result))
-    # end
 
     @testset "Markdown 02" begin
         io = IOBuffer()
@@ -1412,7 +1374,6 @@ end
 
             str = IOBuffer()
             result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.MarkdownFormat())
-            # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
             @test result.files_count == 2
             @test result.violations_count == 1
             @test result.recommendations_count == 0
@@ -1737,7 +1698,7 @@ end
     ---------- \H+
     Line 2, column 5: Use `@spawn` instead of `@async`\. \H+
     Line 5, column 5: `@lock` should be used with extreme caution\. \H+
-    2 potential threats are found: 1 violation and 1 recommendation
+    2 potential threats are found: 0 fatal violation, 1 violation and 1 recommendation
     ----------
     """
     @test !isnothing(match(expected, result))
@@ -1828,8 +1789,10 @@ end
     l1 = LintResult()
     l2 = LintResult(1, 2, 3)
     l3 = LintResult(10, 20, 30)
-    l4 = LintResult(10, 20, 30, ["foo.jl"], 100)
-    l5 = LintResult(10, 20, 30, ["foo2.jl"], 250)
+    l6 = LintResult(10, 20, 30, 40)
+    l4 = LintResult(10, 20, 30, 40, ["foo.jl"], 100, [])
+    l5 = LintResult(10, 20, 30, 40, ["foo2.jl"], 250)
+
 
     @test l1 == l1
     @test l1 == LintResult()
@@ -1840,7 +1803,7 @@ end
     @test l3 != l5
 
     append!(l4, l5)
-    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"], 350)
+    @test l4 == LintResult(20, 40, 60, 80, ["foo.jl", "foo2.jl"], 350)
 end
 
 @testset "RelPath Front-End" begin
@@ -1985,7 +1948,60 @@ end
     end
 end
 
-@testset "Fatal hint" begin
-    @test StaticLint.is_fatal("Unsafe logging statement. You must")
-    @test !StaticLint.is_fatal("Use `Threads.@threads :dynamic` instead of")
+@testset "PreCommit format" begin
+    @testset "No fatal violation" begin
+        local result_matching = false
+        mktempdir() do dir
+            open(joinpath(dir, "foo.jl"), "w") do io1
+                open(joinpath(dir, "bar.jl"), "w") do io2
+                    write(io1, "function f()\n  @async 1 + 1\nend\n")
+                    write(io2, "function g()\n  @async 1 + 1\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    str = IOBuffer()
+                    result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.PreCommitFormat())
+                    StaticLint.print_summary(StaticLint.PreCommitFormat(), str, result)
+
+                    result = String(take!(str))
+
+                    expected = r"""
+                        2 potential threats are found: 0 fatal violation, 2 violations and 0 recommendation
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "With fatal violations" begin
+        local result_matching = false
+        mktempdir() do dir
+            open(joinpath(dir, "foo.jl"), "w") do io1
+                open(joinpath(dir, "bar.jl"), "w") do io2
+                    write(io1, "function f()\n  @async 1 + 1\n  @warn \"blah\"\nend\n")
+                    write(io2, "function g()\n  @async 1 + 1\n  @info \"blah\"\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    str = IOBuffer()
+                    result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.PreCommitFormat())
+                    StaticLint.print_summary(StaticLint.PreCommitFormat(), str, result)
+
+                    result = String(take!(str))
+
+                    expected = r"""
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/bar\.jl
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/foo\.jl
+                        4 potential threats are found: 2 fatal violations, 2 violations and 0 recommendation
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
+    end
 end

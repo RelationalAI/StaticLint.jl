@@ -217,12 +217,13 @@ struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
 struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
 struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
 struct UseOfStaticThreads <: ViolationExtendedRule end
-struct LogStatementsMustBeSafe <: ViolationExtendedRule end
+struct LogStatementsMustBeSafe <: FatalExtendedRule end
 
 const all_extended_rule_types = Ref{Any}(
     vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
         InteractiveUtils.subtypes(ViolationExtendedRule),
+        InteractiveUtils.subtypes(FatalExtendedRule),
         )
 )
 
@@ -234,6 +235,7 @@ function reset_static_lint_caches()
     all_extended_rule_types[] = vcat(
         InteractiveUtils.subtypes(RecommendationExtendedRule),
         InteractiveUtils.subtypes(ViolationExtendedRule),
+        InteractiveUtils.subtypes(FatalExtendedRule),
         )
     return nothing
 end
