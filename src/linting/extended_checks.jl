@@ -529,15 +529,14 @@ function all_arguments_are_safe(x::EXPR)
     is_safe_macro_call(y) =
         y.head == :macrocall && y.args[1].head == :IDENTIFIER && y.args[1].val == "@safe"
 
+    is_safe_literal(x) = x.head in [:NOTHING, :INTEGER, :FLOAT, :TRUE, :FALSE]
+
     for arg in x.args[2:end]
         # This is safe
-        if is_safe_macro_call(arg) ||
-            arg.head in [:NOTHING, :INTEGER, :FLOAT, :TRUE, :FALSE]
-
+        if is_safe_macro_call(arg) || is_safe_literal(arg)
             continue
         elseif arg.head isa CSTParser.EXPR && arg.head.head == :OPERATOR && arg.head.val == "=" &&
-            is_safe_macro_call(arg.args[2])
-
+                    (is_safe_macro_call(arg.args[2]) || is_safe_literal(arg.args[2]))
             continue
         else
             # @info x arg
