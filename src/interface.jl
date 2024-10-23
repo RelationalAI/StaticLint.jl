@@ -120,60 +120,53 @@ in the project will be loaded automatically (calls to `include` with complicated
 are not handled, see `followinclude` for details). A `FileServer` will be returned
 containing the `File`s of the package.
 """
-function lint_file(rootpath, server = setup_server(); gethints = false)
-    empty!(server.files)
-    root = loadfile(server, rootpath)
-    semantic_pass(root)
+function lint_file(rootpath; gethints = false)
+    file_content_string = open(io->read(io, String), rootpath, "r")
+    ast = CSTParser.parse(file_content_string, true)
+
     markers::Dict{Symbol,String} = Dict(:filename => rootpath)
-    for f in values(server.files)
-        check_all(f.cst, essential_options, getenv(f, server), markers)
-    end
+    check_all(ast, markers)
+
     lint_rule_reports = []
-    if gethints
-        hints = []
-        for (p,f) in server.files
-            hints_for_file = []
-            for (offset, x) in collect_hints(f.cst, getenv(f, server))
-                if haserror(x)
-                    # TODO: On some point, we should only have the LintRuleReport case
-                    if x.meta.error isa String
-                        push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
-                    elseif x.meta.error isa LintRuleReport
-                        # The next line should be deleted
-                        push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", p)))
 
-                        lint_rule_report = x.meta.error
-                        lint_rule_report.offset = offset
+    hints = [] # TODO TO REMOVE
+    hints_for_file = [] # TODO TO REMOVE
+    for (offset, x) in collect_lint_report(ast)
+        if haserror(x)
+            # TODO: On some point, we should only have the LintRuleReport case
+            if x.meta.error isa String
+                push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
+            elseif x.meta.error isa LintRuleReport
+                # The next line should be deleted
+                push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", rootpath)))
 
-                        line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
-                        lint_rule_report.line = line_number
-                        lint_rule_report.column = column
+                lint_rule_report = x.meta.error
+                lint_rule_report.offset = offset
 
-                        # If the annotation is to disable lint,
-                        if annotation_line == "lint-disable-line"
-                            # then we disable it.
-                        elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
-                            # then we disable it.
-                        else
-                            # Else we record it.
-                            push!(lint_rule_reports, lint_rule_report)
-                        end
-                    else
-                        push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
-                    end
-                    push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", p)))
+                line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
+                lint_rule_report.line = line_number
+                lint_rule_report.column = column
+
+                # If the annotation is to disable lint,
+                if annotation_line == "lint-disable-line"
+                    # then we disable it.
+                elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
+                    # then we disable it.
+                else
+                    # Else we record it.
+                    push!(lint_rule_reports, lint_rule_report)
                 end
+            else
+                push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
             end
-            append!(hints, hints_for_file)
+            push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", rootpath)))
         end
-        return root, hints, lint_rule_reports
-    else
-        return root
     end
+    append!(hints, hints_for_file)
+    return "TODO", hints, lint_rule_reports
 end
 
 global global_server = nothing
-const essential_options = LintOptions(true, false, true, true, true, true, true, true, true, false, true)
 
 const no_filters = LintCodes[]
 const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile, StaticLint.InvalidTypeDeclaration]]
@@ -311,7 +304,6 @@ should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
 function _run_lint_on_dir(
     rootpath::String;
     result::LintResult=LintResult(),
-    server = global_server,
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
     io_recommendations::Union{IO,Nothing}=nothing,
@@ -325,14 +317,14 @@ function _run_lint_on_dir(
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                run_lint(filename; result, server, io, io_violations, io_recommendations, filters, formatter)
+                run_lint(filename; result, io, io_violations, io_recommendations, filters, formatter)
             end
         end
 
         for dir in dirs
             p = joinpath(root, dir)
             !isnothing(match(r".*/\.git.*", p)) && continue
-            _run_lint_on_dir(p; result, server, io, io_violations, io_recommendations, filters, formatter)
+            _run_lint_on_dir(p; result, io, io_violations, io_recommendations, filters, formatter)
         end
     end
     return result
@@ -411,11 +403,6 @@ print_summary(
     result::LintResult
 ) = nothing
 
-does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
-function initialize_file_server()
-    StaticLint.global_server = setup_server()
-    return StaticLint.global_server
-end
 
 """
     run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
@@ -430,30 +417,24 @@ Example of use:
 function run_lint(
     rootpath::String;
     result::LintResult=LintResult(),
-    server = global_server,
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
     io_recommendations::Union{IO,Nothing}=nothing,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
-    # If no server is defined, then we define it.
-    if does_file_server_need_to_be_initialized()
-        server = initialize_file_server()
-    end
-
     # If already linted, then we merely exit
     rootpath in result.linted_files && return result
 
     # If we are running Lint on a directory
-    isdir(rootpath) && return _run_lint_on_dir(rootpath; result, server, io, io_violations, io_recommendations, filters, formatter)
+    isdir(rootpath) && return _run_lint_on_dir(rootpath; result, io, io_violations, io_recommendations, filters, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,_,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
+    _,_,lint_reports = StaticLint.lint_file(rootpath; gethints = true)
     print_header(formatter, io, rootpath)
 
     is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
@@ -507,7 +488,6 @@ useful to test some rules that depends on the filename.
 function run_lint_on_text(
     source::String;
     result::LintResult=LintResult(),
-    server = global_server,
     io::Union{IO,Nothing}=stdout,
     filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat(),
@@ -529,7 +509,7 @@ function run_lint_on_text(
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        run_lint(tmp_file_name; result, server, io, io_violations, io_recommendations, filters, formatter)
+        run_lint(tmp_file_name; result, io, io_violations, io_recommendations, filters, formatter)
     end
 
     print(io, String(take!(io_violations)))
@@ -554,6 +534,7 @@ function print_datadog_report(
     files_count::Integer,
     violation_count::Integer,
     recommandation_count::Integer,
+    fatalviolations_count::Integer,
 )
     event = Dict(
         :source => "StaticLint",
@@ -565,6 +546,7 @@ function print_datadog_report(
                     :files_count => files_count,
                     :violation_count => violation_count,
                     :recommandation_count => recommandation_count,
+                    :fatalviolations_count => recommandation_count,
                     )
     )
     println(json_output, JSON3.write(event))
@@ -708,7 +690,7 @@ function generate_report(
     end
 
     report_as_string = open(output_filename) do io read(io, String) end
-    print_datadog_report(json_output, report_as_string, lint_result.files_count, lint_result.violations_count, lint_result.recommendations_count)
+    print_datadog_report(json_output, report_as_string, lint_result.files_count, lint_result.violations_count, lint_result.recommendations_count, lint_result.fatalviolations_count)
 
     # If a json_filename was provided, we are writing the result in json_output.
     # In that case, we need to close the stream at the end.

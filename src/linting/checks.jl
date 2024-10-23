@@ -136,7 +136,7 @@ function fetch_value(x::EXPR, tag::Symbol)
     end
 end
 
-function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{Symbol,String}=Dict{Symbol,String}())
+function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
     # Setting up the markers
     if headof(x) === :const
         markers[:const] = fetch_value(x, :IDENTIFIER)
@@ -153,37 +153,19 @@ function check_all(x::EXPR, opts::LintOptions, env::ExternalEnv, markers::Dict{S
         end
     end
 
-    # Do checks
-    opts.call && check_call(x, env)
-    opts.iter && check_loop_iter(x, env)
-    opts.nothingcomp && check_nothing_equality(x, env)
-    opts.constif && check_if_conds(x)
-    opts.lazy && check_lazy(x)
-    opts.datadecl && check_datatype_decl(x, env)
-    opts.typeparam && check_typeparams(x, markers)
-    opts.modname && check_modulename(x)
-    opts.pirates && check_for_pirates(x)
-    opts.useoffuncargs && check_farg_unused(x)
-    check_kw_default(x, env)
-    check_use_of_literal(x)
-    check_break_continue(x)
-    check_const(x)
-
-    if opts.extended
-        for T in all_extended_rule_types[]
-            check_with_process(T, x, markers)
-            if haserror(x) && x.meta.error isa LintRuleReport
-                lint_rule_report = x.meta.error
-                if haskey(markers, :filename)
-                    lint_rule_report.file = markers[:filename]
-                end
+    for T in all_extended_rule_types[]
+        check_with_process(T, x, markers)
+        if haserror(x) && x.meta.error isa LintRuleReport
+            lint_rule_report = x.meta.error
+            if haskey(markers, :filename)
+                lint_rule_report.file = markers[:filename]
             end
         end
     end
 
     if x.args !== nothing
         for i in 1:length(x.args)
-            check_all(x.args[i], opts, env, markers)
+            check_all(x.args[i], markers)
         end
     end
 
@@ -718,6 +700,18 @@ function collect_hints(x::EXPR, env, missingrefs=:all, isquoted=false, errs=Tupl
 
     for i in 1:length(x)
         collect_hints(x[i], env, missingrefs, isquoted, errs, pos)
+        pos += x[i].fullspan
+    end
+
+    errs
+end
+function collect_lint_report(x::EXPR, isquoted=false, errs=Tuple{Int,EXPR}[], pos=0)
+    if haserror(x)
+        push!(errs, (pos, x))
+    end
+
+    for i in 1:length(x)
+        collect_lint_report(x[i], isquoted, errs, pos)
         pos += x[i].fullspan
     end
 
