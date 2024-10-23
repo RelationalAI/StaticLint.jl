@@ -3,18 +3,6 @@ using JSON3
 
 global MAX_REPORTED_ERRORS = 60 # 1_000_000
 
-# Global result of executing Lint on files and folders
-mutable struct LintResult
-    files_count::Integer
-    violations_count::Integer
-    recommendations_count::Integer
-    linted_files::Vector{String}
-    printout_count::Integer
-    has_fatal_hint::Bool
-
-    LintResult(a, b, c, d, e, f) = new(a, b, c, d, e, f)
-end
-
 # Each individual rule violation report
 mutable struct LintRuleReport
     rule::ExtendedRule
@@ -29,32 +17,35 @@ mutable struct LintRuleReport
 end
 LintRuleReport(rule::ExtendedRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0, false, 0)
 
-LintResult() = LintResult(0, 0, 0, String[], 0, false)
-LintResult(a, b, c) = LintResult(a, b, c, String[])
-LintResult(a, b, c, d) = LintResult(a, b, c, d, 0, false)
-LintResult(a, b, c, d, e) = LintResult(a, b, c, d, e, false)
 
-# function Base.:+(l1::LintResult, l2::LintResult)
-#     return LintResult(
-#         l1.files_count + l2.files_count,
-#         l1.violations_count + l2.violations_count,
-#         l1.recommendations_count + l2.recommendations_count,
-#         vcat(l1.linted_files, l2.linted_files)
-#     )
-# end
+# Global result of executing Lint on files and folders
+mutable struct LintResult
+    files_count::Integer
+    violations_count::Integer
+    recommendations_count::Integer
+    fatalviolations_count::Integer
+    linted_files::Vector{String}
+    printout_count::Integer
+    lintrule_reports::Vector{LintRuleReport}
+
+    LintResult(a, b, c, d, e, f, g) = new(a, b, c, d, e, f, g)
+end
+
+LintResult() = LintResult(0, 0, 0)
+LintResult(a, b, c) = LintResult(a, b, c, 0)
+LintResult(a, b, c, d) = LintResult(a, b, c, d, String[])
+LintResult(a, b, c, d, e) = LintResult(a, b, c, d, e, 0)
+LintResult(a, b, c, d, e, f) = LintResult(a, b, c, d, e, f, LintRuleReport[])
+
 
 function Base.append!(l1::LintResult, l2::LintResult)
-    # if !isempty(l2.linted_files)
-    #     if first(l2.linted_files) in l1.linted_files
-    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-    #         @error "ERROROOOOO"
-    #     end
-    # end
-
     l1.files_count += l2.files_count
     l1.violations_count += l2.violations_count
     l1.recommendations_count += l2.recommendations_count
+    l1.fatalviolations_count += l2.fatalviolations_count
     Base.append!(l1.linted_files, l2.linted_files)
+    Base.append!(l1.lintrule_reports, l2.lintrule_reports)
+
     l1.printout_count += l2.printout_count
 end
 
@@ -62,8 +53,10 @@ function Base.:(==)(l1::LintResult, l2::LintResult)
     return l1.files_count == l2.files_count &&
            l1.violations_count == l2.violations_count &&
            l1.recommendations_count == l2.recommendations_count &&
+           l1.fatalviolations_count == l2.fatalviolations_count &&
            l1.linted_files == l2.linted_files &&
-           l1.printout_count == l2.printout_count
+           l1.printout_count == l2.printout_count &&
+           l1.lintrule_reports == l2.lintrule_reports
 end
 
 function is_already_linted(l::LintResult, filename)
@@ -289,10 +282,28 @@ struct MarkdownFormat <: AbstractFormatter
     MarkdownFormat(branch::String, repo::String) = new(branch, repo, "", devnull)
 end
 
-# Being fatal means the lint process will exit(1) when run from pre-commit
-function is_fatal(hint::String)
-    patterns = ["Unsafe", "@safe"]
-    return any(p->contains(hint, p), patterns)
+# Only show the fatal violations and a summary
+struct PreCommitFormat <: AbstractFormatter end
+
+function print_header(::PreCommitFormat, io::IO, rootpath::String)
+    # printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
+    # printstyled(io, "**List of Fatal violations, please address them to commit these files**\n", color=:red)
+end
+
+print_footer(::PreCommitFormat, io::IO) = nothing
+function print_summary(::PreCommitFormat, io::IO, result::LintResult)
+    print_summary(PlainFormat(), io, result)
+    printstyled(io, "Note that the list above only show fatal violations\n", color=:red)
+end
+
+function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport)
+    # Do not print anything if it is not a fatal violation
+    lint_report.rule isa FatalExtendedRule || return
+    printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
+    print(io, " ")
+    print(io, lint_report.msg)
+    print(io, " ")
+    println(io, lint_report.file)
 end
 
 should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
@@ -342,18 +353,18 @@ end
 function print_summary(
     ::PlainFormat,
     io::IO,
-    count_violations::Integer,
-    count_recommendations::Integer
+    result::LintResult
 )
-    nb_hints = count_violations + count_recommendations
-    if iszero(nb_hints)
+    nb_rulereports = result.violations_count + result.recommendations_count + result.fatalviolations_count
+    if iszero(nb_rulereports)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
-        plural = nb_hints > 1 ? "s are" : " is"
-        plural_vio = count_violations > 1 ? "s" : ""
-        plural_rec = count_recommendations > 1 ? "s" : ""
-        printstyled(io, "$(nb_hints) potential threat$(plural) found: ", color=:red)
-        printstyled(io, "$(count_violations) violation$(plural_vio) and $(count_recommendations) recommendation$(plural_rec)\n", color=:red)
+        plural = nb_rulereports > 1 ? "s are" : " is"
+        plural_vio = result.violations_count > 1 ? "s" : ""
+        plural_fatal = result.fatalviolations_count > 1 ? "s" : ""
+        plural_rec = result.recommendations_count > 1 ? "s" : ""
+        printstyled(io, "$(nb_rulereports) potential threat$(plural) found: ", color=:red)
+        printstyled(io, "$(result.fatalviolations_count) fatal violation$(plural_fatal), $(result.violations_count) violation$(plural_vio) and $(result.recommendations_count) recommendation$(plural_rec)\n", color=:red)
     end
 end
 
@@ -394,7 +405,11 @@ function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleRepor
     println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(lint_report.line),col=$(lint_report.column)::$(lint_report.msg)")
 end
 
-print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
+print_summary(
+    ::MarkdownFormat,
+    io::IO,
+    result::LintResult
+) = nothing
 
 does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
 function initialize_file_server()
@@ -441,15 +456,26 @@ function run_lint(
     _,_,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
     print_header(formatter, io, rootpath)
 
-    is_violation(r::LintRuleReport) = r.rule isa ViolationExtendedRule
     is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
+    is_violation(r::LintRuleReport) = r.rule isa ViolationExtendedRule
     is_fatal(r::LintRuleReport) = r.rule isa FatalExtendedRule
 
     violation_reports = filter(is_violation, lint_reports)
-    recommandations_reports = filter(is_recommendation, lint_reports)
+    recommandation_reports = filter(is_recommendation, lint_reports)
+    fatalviolation_reports = filter(is_fatal, lint_reports)
 
     count_violations = length(violation_reports)
-    count_recommendations = length(recommandations_reports)
+    count_recommendations = length(recommandation_reports)
+    count_fataviolations = length(fatalviolation_reports)
+
+    # Fatal reports are printed in io_violations, but first
+    io_tmp = isnothing(io_violations) ? io : io_violations
+    for r in fatalviolation_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
+        end
+    end
 
     io_tmp = isnothing(io_violations) ? io : io_violations
     for r in violation_reports
@@ -460,7 +486,7 @@ function run_lint(
     end
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-    for r in recommandations_reports
+    for r in recommandation_reports
         if should_print_report(result)
             print_report(formatter, io_tmp, r)
             result.printout_count += 1
@@ -468,7 +494,7 @@ function run_lint(
     end
 
     # We run Lint on a single file.
-    append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
+    append!(result, LintResult(1, count_violations, count_recommendations, count_fataviolations, [rootpath], 0, lint_reports))
     return result
 end
 
@@ -512,9 +538,7 @@ function run_lint_on_text(
     print_summary(
         formatter,
         io,
-        result.violations_count,
-        result.recommendations_count
-    )
+        result)
     print_footer(formatter, io)
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
