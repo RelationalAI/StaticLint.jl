@@ -136,44 +136,44 @@ function fetch_value(x::EXPR, tag::Symbol)
     end
 end
 
-function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
-    # Setting up the markers
-    if headof(x) === :const
-        markers[:const] = fetch_value(x, :IDENTIFIER)
-    end
+# function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
+#     # Setting up the markers
+#     if headof(x) === :const
+#         markers[:const] = fetch_value(x, :IDENTIFIER)
+#     end
 
-    if headof(x) === :function
-        markers[:function] = fetch_value(x, :IDENTIFIER)
-    end
+#     if headof(x) === :function
+#         markers[:function] = fetch_value(x, :IDENTIFIER)
+#     end
 
-    if headof(x) === :macrocall
-        id = fetch_value(x, :IDENTIFIER)
-        if !isnothing(id)
-            markers[:macrocall] = id
-        end
-    end
+#     if headof(x) === :macrocall
+#         id = fetch_value(x, :IDENTIFIER)
+#         if !isnothing(id)
+#             markers[:macrocall] = id
+#         end
+#     end
 
-    for T in all_extended_rule_types[]
-        check_with_process(T, x, markers)
-        if haserror(x) && x.meta.error isa LintRuleReport
-            lint_rule_report = x.meta.error
-            if haskey(markers, :filename)
-                lint_rule_report.file = markers[:filename]
-            end
-        end
-    end
+#     for T in all_extended_rule_types[]
+#         check_with_process(T, x, markers)
+#         if haserror(x) && x.meta.error isa LintRuleReport
+#             lint_rule_report = x.meta.error
+#             if haskey(markers, :filename)
+#                 lint_rule_report.file = markers[:filename]
+#             end
+#         end
+#     end
 
-    if x.args !== nothing
-        for i in 1:length(x.args)
-            check_all(x.args[i], markers)
-        end
-    end
+#     if x.args !== nothing
+#         for i in 1:length(x.args)
+#             check_all(x.args[i], markers)
+#         end
+#     end
 
-    # Do some cleaning
-    headof(x) === :const && delete!(markers, :const)
-    headof(x) === :function && delete!(markers, :function)
-    headof(x) === :macrocall && delete!(markers, :macrocall)
-end
+#     # Do some cleaning
+#     headof(x) === :const && delete!(markers, :const)
+#     headof(x) === :function && delete!(markers, :function)
+#     headof(x) === :macrocall && delete!(markers, :macrocall)
+# end
 
 function _typeof(x, state)
     if x isa EXPR
