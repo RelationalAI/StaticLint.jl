@@ -69,47 +69,6 @@ function has_values(l::LintResult, a, b, c)
             l.recommendations_count == c
 end
 
-function setup_server(
-    env = dirname(SymbolServer.Pkg.Types.Context().env.project_file),
-    depot = first(SymbolServer.Pkg.depots()),
-    cache = joinpath(dirname(pathof(SymbolServer)), "..", "store")
-)
-    server = StaticLint.FileServer()
-    ssi = SymbolServerInstance(depot, cache)
-    _, symbols = SymbolServer.getstore(ssi, env)
-    extended_methods = SymbolServer.collect_extended_methods(symbols)
-    server.external_env = ExternalEnv(symbols, extended_methods, Symbol[])
-    server
-end
-
-"""
-    lint_string(s, server; gethints = false)
-
-Parse a string and run a semantic pass over it. This will mark scopes, bindings,
-references, and lint hints. An annotated `EXPR` is returned or, if `gethints = true`,
-it is paired with a collected list of errors/hints.
-"""
-function lint_string(s::String, server = setup_server(); gethints = false)
-    empty!(server.files)
-    f = File("", s, CSTParser.parse(s, true), nothing, server)
-    env = getenv(f, server)
-    setroot(f, f)
-    setfile(server, "", f)
-    semantic_pass(f)
-    check_all(f.cst, LintOptions(), env)
-    if gethints
-        hints = []
-        for (offset, x) in collect_hints(f.cst, env)
-            if haserror(x)
-                push!(hints, (x, LintCodeDescriptions[x.meta.error]))
-                push!(hints, (x, "Missing reference.", " at offset ", offset))
-            end
-        end
-        return f.cst, hints
-    else
-        return f.cst
-    end
-end
 
 """
     lint_file(rootpath, server)
@@ -120,7 +79,7 @@ in the project will be loaded automatically (calls to `include` with complicated
 are not handled, see `followinclude` for details). A `FileServer` will be returned
 containing the `File`s of the package.
 """
-function lint_file(rootpath; gethints = false)
+function lint_file(rootpath)
     file_content_string = open(io->read(io, String), rootpath, "r")
     ast = CSTParser.parse(file_content_string, true)
 
@@ -129,47 +88,29 @@ function lint_file(rootpath; gethints = false)
 
     lint_rule_reports = []
 
-    hints = [] # TODO TO REMOVE
-    hints_for_file = [] # TODO TO REMOVE
     for (offset, x) in collect_lint_report(ast)
         if haserror(x)
-            # TODO: On some point, we should only have the LintRuleReport case
-            if x.meta.error isa String
-                push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
-            elseif x.meta.error isa LintRuleReport
-                # The next line should be deleted
-                push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", rootpath)))
+            # The next line should be deleted
+            lint_rule_report = x.meta.error
+            lint_rule_report.offset = offset
 
-                lint_rule_report = x.meta.error
-                lint_rule_report.offset = offset
+            line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
+            lint_rule_report.line = line_number
+            lint_rule_report.column = column
 
-                line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
-                lint_rule_report.line = line_number
-                lint_rule_report.column = column
-
-                # If the annotation is to disable lint,
-                if annotation_line == "lint-disable-line"
-                    # then we disable it.
-                elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
-                    # then we disable it.
-                else
-                    # Else we record it.
-                    push!(lint_rule_reports, lint_rule_report)
-                end
+            # If the annotation is to disable lint,
+            if annotation_line == "lint-disable-line"
+                # then we disable it.
+            elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
+                # then we disable it.
             else
-                push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
+                # Else we record it.
+                push!(lint_rule_reports, lint_rule_report)
             end
-            push!(hints_for_file, (x, string("Missing reference.", " at offset ", offset, " of ", rootpath)))
         end
     end
-    append!(hints, hints_for_file)
-    return "TODO", hints, lint_rule_reports
+    return "TODO", 0, lint_rule_reports
 end
-
-global global_server = nothing
-
-const no_filters = LintCodes[]
-const essential_filters = [no_filters; [StaticLint.MissingReference, StaticLint.MissingFile, StaticLint.InvalidTypeDeclaration]]
 
 # Return (index_line, index_column, annotation) for a given offset in a source
 function convert_offset_to_line_from_filename(offset::Union{Int64, Int32}, filename::String)
@@ -307,7 +248,6 @@ function _run_lint_on_dir(
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
     io_recommendations::Union{IO,Nothing}=nothing,
-    filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
     # Exit if we are in .git
@@ -317,14 +257,14 @@ function _run_lint_on_dir(
         for file in files
             filename = joinpath(root, file)
             if endswith(filename, ".jl")
-                run_lint(filename; result, io, io_violations, io_recommendations, filters, formatter)
+                run_lint(filename; result, io, io_violations, io_recommendations, formatter)
             end
         end
 
         for dir in dirs
             p = joinpath(root, dir)
             !isnothing(match(r".*/\.git.*", p)) && continue
-            _run_lint_on_dir(p; result, io, io_violations, io_recommendations, filters, formatter)
+            _run_lint_on_dir(p; result, io, io_violations, io_recommendations, formatter)
         end
     end
     return result
@@ -405,7 +345,7 @@ print_summary(
 
 
 """
-    run_lint(rootpath::String; server = global_server, io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
+    run_lint(rootpath::String; io::IO=stdout, io_violations::Union{IO,Nothing}, io_recommendations::Union{IO,Nothing})
 
 Run lint rules on a file `rootpath`, which must be an existing non-folder file. Return a
 LintResult.
@@ -420,21 +360,20 @@ function run_lint(
     io::Union{IO,Nothing}=stdout,
     io_violations::Union{IO,Nothing}=nothing,
     io_recommendations::Union{IO,Nothing}=nothing,
-    filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat()
 )
     # If already linted, then we merely exit
     rootpath in result.linted_files && return result
 
     # If we are running Lint on a directory
-    isdir(rootpath) && return _run_lint_on_dir(rootpath; result, io, io_violations, io_recommendations, filters, formatter)
+    isdir(rootpath) && return _run_lint_on_dir(rootpath; result, io, io_violations, io_recommendations, formatter)
 
     # Check if we have to be run on a Julia file. Simply exit if not.
     # This simplify the amount of work in GitHub Action
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,_,lint_reports = StaticLint.lint_file(rootpath; gethints = true)
+    _,_,lint_reports = StaticLint.lint_file(rootpath)
     print_header(formatter, io, rootpath)
 
     is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
@@ -489,7 +428,6 @@ function run_lint_on_text(
     source::String;
     result::LintResult=LintResult(),
     io::Union{IO,Nothing}=stdout,
-    filters::Vector{LintCodes}=essential_filters,
     formatter::AbstractFormatter=PlainFormat(),
     directory::String = ""   # temporary directory to be created. If empty, let Julia decide
 )
@@ -509,7 +447,7 @@ function run_lint_on_text(
     open(tmp_file_name, "w") do file
         write(file, source)
         flush(file)
-        run_lint(tmp_file_name; result, io, io_violations, io_recommendations, filters, formatter)
+        run_lint(tmp_file_name; result, io, io_violations, io_recommendations, formatter)
     end
 
     print(io, String(take!(io_violations)))
@@ -648,7 +586,6 @@ function generate_report(
                 io = output_io,
                 io_violations = io_violations,
                 io_recommendations = io_recommendations,
-                filters = essential_filters,
                 formatter
             )
         end

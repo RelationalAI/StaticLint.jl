@@ -798,7 +798,7 @@ end
 
     @testset "Plain 02" begin
         io = IOBuffer()
-        run_lint_on_text(source; io=io, filters=StaticLint.essential_filters)
+        run_lint_on_text(source; io=io)
         result = String(take!(io))
 
         expected = r"""
@@ -812,7 +812,7 @@ end
 
     @testset "Markdown 02" begin
         io = IOBuffer()
-        run_lint_on_text(source; io=io, filters=StaticLint.essential_filters, formatter=MarkdownFormat())
+        run_lint_on_text(source; io=io, formatter=MarkdownFormat())
         result = String(take!(io))
 
         expected = r"""
@@ -828,7 +828,6 @@ end
         run_lint_on_text(
             source;
             io,
-            filters=StaticLint.essential_filters,
             formatter,
             directory="/src/Compiler/")
         result = String(take!(io))
@@ -845,7 +844,6 @@ end
         run_lint_on_text(
             source;
             io,
-            filters=StaticLint.essential_filters,
             formatter,
             directory="src/Compiler/")
         result = String(take!(io))

@@ -405,5 +405,5 @@ include("utils.jl")
 include("interface.jl")
 
 export MarkdownFormat, PlainFormat
-export run_lint, essential_filters
+export run_lint
 end
