@@ -67,7 +67,6 @@ function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
     end
 
     if headof(x) === :function
-        isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
         markers[:function] = fetch_value(x, :IDENTIFIER)
     end
 
