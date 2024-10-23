@@ -1994,13 +1994,10 @@ end
                     result = String(take!(str))
 
                     expected = r"""
-                        ---------- \H+
-                        \*\*List of Fatal violations, please address them to commit these files\*\*
-                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/bar\.jl
-                        ---------- \H+
-                        \*\*List of Fatal violations, please address them to commit these files\*\*
-                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/foo\.jl
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/bar.jl
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/foo.jl
                         4 potential threats are found: 2 fatal violations, 2 violations and 0 recommendation
+                        Note that the list above only show fatal violations
                         """
                     result_matching = !isnothing(match(expected, result))
                 end
