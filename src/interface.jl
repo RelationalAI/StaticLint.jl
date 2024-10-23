@@ -285,7 +285,11 @@ end
 # Only show the fatal violations and a summary
 struct PreCommitFormat <: AbstractFormatter end
 
-print_header(::PreCommitFormat, io::IO, rootpath::String) = nothing
+function print_header(::PreCommitFormat, io::IO, rootpath::String)
+    printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
+    printstyled(io, "**List of Fatal violations, please address them to commit these files**\n", color=:red)
+end
+
 print_footer(::PreCommitFormat, io::IO) = nothing
 function print_summary(::PreCommitFormat, io::IO, result::LintResult)
     print_summary(PlainFormat(), io, result)
