@@ -26,7 +26,11 @@ else
 fi
 
 # Running StaticLint
-echo "FULL NAME" $0
+echo "FULLNAME SCRIPT" $0
+STATICLINTPATH=$(dirname $0)/..
+echo "STATICLINT PATH=" $STATICLINTPATH
+cd $STATICLINTPATH
+ls
 echo "CURRENT PATH=" $PWD
 
 echo "About to run StaticLint.jl..."
