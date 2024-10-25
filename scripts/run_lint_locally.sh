@@ -29,12 +29,12 @@ fi
 echo "FULLNAME SCRIPT" $0
 STATICLINTPATH=$(dirname $0)/..
 echo "STATICLINT PATH=" $STATICLINTPATH
-cd $STATICLINTPATH
-ls
+# cd $STATICLINTPATH
+# ls
 echo "CURRENT PATH=" $PWD
 
 echo "About to run StaticLint.jl..."
-julia --project=. -e "
+julia --project=$STATICLINTPATH -e "
   using StaticLint
   result = StaticLint.LintResult()
   all_files_tmp=split(open(io->read(io, String), \"/tmp/files_to_run_lint.txt\", \"r\"))
