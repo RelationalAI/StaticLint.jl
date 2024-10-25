@@ -1,0 +1,6 @@
+- id: run-lint
+  name: run-lint
+  description: This hook checks for fatal violations in Julia code base
+  language: script
+  entry: ./scripts/run_lint_locally.sh
+  types: [file]
