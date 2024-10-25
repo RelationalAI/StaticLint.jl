@@ -26,6 +26,7 @@ else
 fi
 
 # Running StaticLint
+echo "FULL NAME" $0
 echo "CURRENT PATH=" $PWD
 
 echo "About to run StaticLint.jl..."
