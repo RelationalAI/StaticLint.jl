@@ -1938,6 +1938,16 @@ end
                  (total: $(length(UNIQUE_BETREE_TYPES))): \n\
                  $(total_report)"
              ) total = @safe(length(UNIQUE_BETREE_TYPES))
+
+        @warnv(
+            0,
+            @safe("Precompiling: parse error: $(e)"),
+            precompile_statement=@safe(repr(statement)),
+            # Log the message that the exception would print, else JSONLogger logs each of
+            # the fields of the exception separately which is much less useful.
+            exception=@safe(sprint(showerror, e)),
+            maxlog=100,
+        )
     end
     """
     @test count_lint_errors(source) == 12
