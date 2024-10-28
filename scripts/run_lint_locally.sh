@@ -33,12 +33,12 @@ echo "STATICLINT PATH=" $STATICLINTPATH
 # ls
 echo "CURRENT PATH=" $PWD
 
-echo "Julia Registry updating and instantiating..."
-cd $STATICLINTPATH
-julia --project=$STATICLINTPATH -e "
-  import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
-"
-cd -
+# echo "Julia Registry updating and instantiating..."
+# cd $STATICLINTPATH
+# julia --project=$STATICLINTPATH -e "
+#   import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
+# "
+# cd -
 
 echo "About to run StaticLint.jl..."
 julia --project=$STATICLINTPATH -e "
