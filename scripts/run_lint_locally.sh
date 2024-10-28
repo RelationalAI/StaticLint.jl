@@ -29,15 +29,16 @@ fi
 echo "FULLNAME SCRIPT" $0
 STATICLINTPATH=$(dirname $0)/..
 echo "STATICLINT PATH=" $STATICLINTPATH
-# cd $STATICLINTPATH
-# ls
 echo "CURRENT PATH=" $PWD
 
 echo "Julia Registry updating and instantiating..."
 cd $STATICLINTPATH
 julia --project=$STATICLINTPATH -e "
-  import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
+  import Pkg ; Pkg.instantiate()
 "
+# julia --project=$STATICLINTPATH -e "
+#   import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
+# "
 cd -
 
 echo "About to run StaticLint.jl..."
