@@ -29,20 +29,21 @@ fi
 echo "FULLNAME SCRIPT" $0
 STATICLINTPATH=$(dirname $0)/..
 echo "STATICLINT PATH=" $STATICLINTPATH
-echo "CURRENT PATH=" $PWD
+RAICODE_PATH=$PWD
+echo "CURRENT PATH=" $RAICODE_PATH
 
-echo "Julia Registry updating and instantiating..."
-cd $STATICLINTPATH
-julia --project=$STATICLINTPATH -e "
-  import Pkg ; Pkg.instantiate()
-"
+# echo "Julia Registry updating and instantiating..."
+# cd $STATICLINTPATH
 # julia --project=$STATICLINTPATH -e "
-#   import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
+#   import Pkg ; Pkg.instantiate()
 # "
-cd -
+# cd -
 
 echo "About to run StaticLint.jl..."
 julia --project=$STATICLINTPATH -e "
+  import Pkg
+  Pkg.instantiate()
+
   using StaticLint
   result = StaticLint.LintResult()
   all_files_tmp=split(open(io->read(io, String), \"/tmp/files_to_run_lint.txt\", \"r\"))
