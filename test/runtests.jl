@@ -1,4 +1,4 @@
-using StaticLint, SymbolServer
+using StaticLint
 using CSTParser, Test
 using StaticLint: convert_offset_to_line_from_lines, check_all
 
