@@ -134,23 +134,28 @@ end
 end
 
 @testset "forbidden functions" begin
-    @testset "functions to initialize a const" begin
+    @testset "Initializing a const variable with functions" begin
         source = """
             const x = Threads.nthreads()
-            const y = foo()
-            const z = 10 + foo()
-            const w = 10 + (20 + 10)
+            const y = Deployment.is_local_deployment()
+            const z = is_local_deployment()
+            const u = foo() # Allowed
+
             function f()
-                return x + foo()
+                if Deployment.is_local_deployment()
+                    print("It is all good!")
+                end
+                return x + Threads.nthreads()
             end
             """
         @test count_lint_errors(source) == 3
         @test lint_test(source,
-            "Line 1, column 11: Functions must not be used to initialize a constant variable.")
+            "Line 1, column 11: `Threads.nthreads()` should not be used in a constant variable.")
         @test lint_test(source,
-            "Line 2, column 11: Functions must not be used to initialize a constant variable.")
+            "Line 2, column 11: `Deployment.is_local_deployment()` should not be used in a constant variable.")
         @test lint_test(source,
-            "Line 3, column 16: Functions must not be used to initialize a constant variable.")    end
+            "Line 3, column 11: `is_local_deployment()` should not be used in a constant variable.")
+    end
 
     @testset "nthreads() not as a const" begin
         source = """
@@ -293,13 +298,16 @@ end
 
     @testset "ReentrantLock" begin
         source = """
+            const lock = ReentrantLock()
             function foo()
                 lock2 = ReentrantLock()
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 2, column 13: `ReentrantLock` should be used with extreme caution.")
+            "Line 3, column 13: `ReentrantLock` should be used with extreme caution.")
+        @test lint_test(source,
+            "Line 1, column 14: `ReentrantLock` should be used with extreme caution.")
     end
 
     @testset "SpinLock" begin
@@ -805,7 +813,7 @@ end
 
         expected = r"""
             ---------- \H+
-            Line 1, column 11: Functions must not be used to initialize a constant variable\. \H+
+            Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             1 potential threat is found: 0 fatal violation, 1 violation and 0 recommendation
             ----------
             """
@@ -818,7 +826,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*Line 1, column 11:\*\* Functions must not be used to initialize a constant variable\. \H+
+             - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -836,7 +844,7 @@ end
         result = String(take!(io))
 
         expected = r"""
-             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* Functions must not be used to initialize a constant variable\. \H+
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end
@@ -852,7 +860,7 @@ end
             directory="src/Compiler/")
         result = String(take!(io))
         expected = r"""
-             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* Functions must not be used to initialize a constant variable\. \H+
+             - \*\*\[Line 1, column 11:\]\(https://github\.com/RelationalAI/raicode/blob/axb-example-with-lint-errors/\H+/src/Compiler/tmp_julia_file\.jl#L1\)\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
             """
         @test !isnothing(match(expected, result))
     end

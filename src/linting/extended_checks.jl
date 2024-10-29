@@ -289,9 +289,11 @@ check(t::CcallRule, x::EXPR) = generic_check(t, x, "ccall(hole_variable, hole_va
 check(t::Pointer_from_objrefRule, x::EXPR) = generic_check(t, x, "pointer_from_objref(hole_variable)", "`pointer_from_objref` should be used with extreme caution.")
 
 function check(t::InitializingWithFunctionRule, x::EXPR, markers::Dict{Symbol,String})
-    # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
+    # If we are not in a const statement, then we exit this function.
     haskey(markers, :const) || return
-    generic_check(t, x, "hole_variable(hole_variable_star)", "Functions must not be used to initialize a constant variable.")
+    generic_check(t, x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
+    generic_check(t, x, "is_local_deployment()", "`is_local_deployment()` should not be used in a constant variable.")
+    generic_check(t, x, "Deployment.is_local_deployment()", "`Deployment.is_local_deployment()` should not be used in a constant variable.")
 end
 
 check(t::CFunctionRule, x::EXPR) = generic_check(t, x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
