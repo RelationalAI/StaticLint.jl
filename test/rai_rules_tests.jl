@@ -151,6 +151,10 @@ end
         @test count_lint_errors(source) == 3
         @test lint_test(source,
             "Line 1, column 11: `Threads.nthreads()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 2, column 11: `Deployment.is_local_deployment()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 3, column 11: `is_local_deployment()` should not be used in a constant variable.")
     end
 
     @testset "nthreads() not as a const" begin
