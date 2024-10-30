@@ -5,7 +5,7 @@
 #   - document an existing rule
 #
 # If you wish to add a new Lint rule, you need:
-#   1. Define a new type, subtype of RecommendationExtendedRule or ViolationExtendedRule
+#   1. Define a new type, subtype of RecommendationLintRule or ViolationLintRule
 #   2. Write a new function function check(t::YOUR_NEW_TYPE, x::EXPR)
 #   3. Add your unit tests in rai_rules_tests.jl
 #   4. Restart your REPL if you use it
@@ -249,63 +249,63 @@ end
 #################################################################################
 # EXTENDED LINT RULES
 #################################################################################
-abstract type ExtendedRule end
-abstract type RecommendationExtendedRule <: ExtendedRule end
-abstract type ViolationExtendedRule <: ExtendedRule end
-abstract type FatalExtendedRule <: ExtendedRule end
+abstract type LintRule end
+abstract type RecommendationLintRule <: LintRule end
+abstract type ViolationLintRule <: LintRule end
+abstract type FatalLintRule <: LintRule end
 
 # Useful to bridge old staticlint with ours.
-struct UnaccountedRule <: ViolationExtendedRule end
+struct UnaccountedRule <: ViolationLintRule end
 check(::UnaccountedRule, msg) = nothing
 
-struct Async_Extention <: ViolationExtendedRule end
-struct Ccall_Extention <: RecommendationExtendedRule end
-struct Pointer_from_objref_Extention <: RecommendationExtendedRule end
-struct NThreads_Extention <: ViolationExtendedRule end
-struct Finalizer_Extention <: RecommendationExtendedRule end
-struct CFunction_Extention <: RecommendationExtendedRule end
-struct Semaphore_Extension <: RecommendationExtendedRule end
-struct Destructor_Extension <: RecommendationExtendedRule end
-struct ReentrantLock_Extension <: RecommendationExtendedRule end
-struct SpinLock_Extension <: RecommendationExtendedRule end
-struct Lock_Extension <: RecommendationExtendedRule end
-struct Unlock_Extension <: RecommendationExtendedRule end
-struct Yield_Extension <: RecommendationExtendedRule end
-struct Sleep_Extension <: RecommendationExtendedRule end
-struct Mmap_Extension <: RecommendationExtendedRule end
-struct Future_Extension <: RecommendationExtendedRule end
-struct Wait_Extension <: RecommendationExtendedRule end
-struct Inbounds_Extension <: RecommendationExtendedRule end
-struct Atomic_Extension <: RecommendationExtendedRule end
-struct Ptr_Extension <: RecommendationExtendedRule end
-struct ArrayWithNoType_Extension <: ViolationExtendedRule end
-struct Threads_Extension <: RecommendationExtendedRule end
-struct Generated_Extension <: RecommendationExtendedRule end
-struct Sync_Extension <: RecommendationExtendedRule end
-struct RemovePage_Extension <: ViolationExtendedRule end
-struct Channel_Extension <: RecommendationExtendedRule end
-struct Task_Extension <: ViolationExtendedRule end
-struct ErrorException_Extension <: ViolationExtendedRule end
-struct Error_Extension <: ViolationExtendedRule end
-struct Unsafe_Extension <: ViolationExtendedRule end
-struct In_Extension <: ViolationExtendedRule end
-struct HasKey_Extension <: ViolationExtendedRule end
-struct Equal_Extension <: ViolationExtendedRule end
-struct Uv_Extension <: ViolationExtendedRule end
-struct Splatting_Extension <: RecommendationExtendedRule end
-struct UnreachableBranch_Extension <: ViolationExtendedRule end
-struct StringInterpolation_Extension <: ViolationExtendedRule end
-struct RelPathAPIUsage_Extension <: ViolationExtendedRule end
-struct NonFrontShapeAPIUsage_Extension <: ViolationExtendedRule end
-struct InterpolationInSafeLog_Extension <: RecommendationExtendedRule end
-struct UseOfStaticThreads <: ViolationExtendedRule end
-struct LogStatementsMustBeSafe <: FatalExtendedRule end
+struct AsyncRule <: ViolationLintRule end
+struct CcallRule <: RecommendationLintRule end
+struct Pointer_from_objrefRule <: RecommendationLintRule end
+struct InitializingWithFunctionRule <: ViolationLintRule end
+struct FinalizerRule <: RecommendationLintRule end
+struct CFunctionRule <: RecommendationLintRule end
+struct SemaphoreRule <: RecommendationLintRule end
+struct DestructorRule <: RecommendationLintRule end
+struct ReentrantLockRule <: RecommendationLintRule end
+struct SpinLockRule <: RecommendationLintRule end
+struct LockRule <: RecommendationLintRule end
+struct UnlockRule <: RecommendationLintRule end
+struct YieldRule <: RecommendationLintRule end
+struct SleepRule <: RecommendationLintRule end
+struct MmapRule <: RecommendationLintRule end
+struct FutureRule <: RecommendationLintRule end
+struct WaitRule <: RecommendationLintRule end
+struct InboundsRule <: RecommendationLintRule end
+struct AtomicRule <: RecommendationLintRule end
+struct PtrRule <: RecommendationLintRule end
+struct ArrayWithNoTypeRule <: ViolationLintRule end
+struct ThreadsRule <: RecommendationLintRule end
+struct GeneratedRule <: RecommendationLintRule end
+struct SyncRule <: RecommendationLintRule end
+struct RemovePageRule <: ViolationLintRule end
+struct ChannelRule <: RecommendationLintRule end
+struct TaskRule <: ViolationLintRule end
+struct ErrorExceptionRule <: ViolationLintRule end
+struct ErrorRule <: ViolationLintRule end
+struct UnsafeRule <: ViolationLintRule end
+struct InRule <: ViolationLintRule end
+struct HasKeyRule <: ViolationLintRule end
+struct EqualRule <: ViolationLintRule end
+struct UvRule <: ViolationLintRule end
+struct SplattingRule <: RecommendationLintRule end
+struct UnreachableBranchRule <: ViolationLintRule end
+struct StringInterpolationRule <: ViolationLintRule end
+struct RelPathAPIUsageRule <: ViolationLintRule end
+struct NonFrontShapeAPIUsageRule <: ViolationLintRule end
+struct InterpolationInSafeLogRule <: RecommendationLintRule end
+struct UseOfStaticThreads <: ViolationLintRule end
+struct LogStatementsMustBeSafe <: FatalLintRule end
 
 const all_extended_rule_types = Ref{Any}(
     vcat(
-        InteractiveUtils.subtypes(RecommendationExtendedRule),
-        InteractiveUtils.subtypes(ViolationExtendedRule),
-        InteractiveUtils.subtypes(FatalExtendedRule),
+        InteractiveUtils.subtypes(RecommendationLintRule),
+        InteractiveUtils.subtypes(ViolationLintRule),
+        InteractiveUtils.subtypes(FatalLintRule),
         )
 )
 
@@ -315,9 +315,9 @@ const check_cache = Dict{String, CSTParser.EXPR}()
 function reset_static_lint_caches()
     empty!(check_cache)
     all_extended_rule_types[] = vcat(
-        InteractiveUtils.subtypes(RecommendationExtendedRule),
-        InteractiveUtils.subtypes(ViolationExtendedRule),
-        InteractiveUtils.subtypes(FatalExtendedRule),
+        InteractiveUtils.subtypes(RecommendationLintRule),
+        InteractiveUtils.subtypes(ViolationLintRule),
+        InteractiveUtils.subtypes(FatalLintRule),
         )
     return nothing
 end
@@ -329,7 +329,7 @@ end
 
 does_match(x::EXPR, template_code::String) = comp(x, get_oracle_ast(template_code))
 
-function generic_check(t::ExtendedRule, x::EXPR, template_code::String, error_msg::String)
+function generic_check(t::LintRule, x::EXPR, template_code::String, error_msg::String)
     generic_check(typeof(t), x, template_code, error_msg)
 end
 
@@ -337,7 +337,7 @@ function generic_check(T::DataType, x::EXPR, template_code::String, error_msg::S
     does_match(x, template_code) && seterror!(x, LintRuleReport(T(), error_msg))
 end
 
-function generic_check(t::ExtendedRule, x::EXPR, template_code::String)
+function generic_check(t::LintRule, x::EXPR, template_code::String)
     generic_check(typeof(t), x, template_code)
 end
 
@@ -355,61 +355,63 @@ check(t::Any, x::EXPR, markers::Dict{Symbol,String}) = check(t, x)
 
 # The following function defines rules that are matched on the input Julia source code
 # Each rule comes with a pattern that is checked against the abstract syntax tree
-function check(t::Finalizer_Extention, x::EXPR)
+function check(t::FinalizerRule, x::EXPR)
     error_msg = "`finalizer(_,_)` should not be used."
     generic_check(t, x, "finalizer(hole_variable, hole_variable)", error_msg)
     generic_check(t, x, "finalizer(hole_variable) do hole_variable hole_variable_star end", error_msg)
 end
 
-function check(t::Async_Extention, x::EXPR)
+function check(t::AsyncRule, x::EXPR)
     msg = "Use `@spawn` instead of `@async`."
     generic_check(t, x, "@async hole_variable", msg)
     generic_check(t, x, "Threads.@async hole_variable", msg)
 end
 
-check(t::Ccall_Extention, x::EXPR) = generic_check(t, x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "`ccall` should be used with extreme caution.")
-check(t::Pointer_from_objref_Extention, x::EXPR) = generic_check(t, x, "pointer_from_objref(hole_variable)", "`pointer_from_objref` should be used with extreme caution.")
+check(t::CcallRule, x::EXPR) = generic_check(t, x, "ccall(hole_variable, hole_variable, hole_variable, hole_variable_star)", "`ccall` should be used with extreme caution.")
+check(t::Pointer_from_objrefRule, x::EXPR) = generic_check(t, x, "pointer_from_objref(hole_variable)", "`pointer_from_objref` should be used with extreme caution.")
 
-function check(t::NThreads_Extention, x::EXPR, markers::Dict{Symbol,String})
-    # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
+function check(t::InitializingWithFunctionRule, x::EXPR, markers::Dict{Symbol,String})
+    # If we are not in a const statement, then we exit this function.
     haskey(markers, :const) || return
     generic_check(t, x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
+    generic_check(t, x, "is_local_deployment()", "`is_local_deployment()` should not be used in a constant variable.")
+    generic_check(t, x, "Deployment.is_local_deployment()", "`Deployment.is_local_deployment()` should not be used in a constant variable.")
 end
 
-check(t::CFunction_Extention, x::EXPR) = generic_check(t, x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
-check(t::Semaphore_Extension, x::EXPR) = generic_check(t, x, "Semaphore(hole_variable)", "`Semaphore` should be used with extreme caution.")
-check(t::ReentrantLock_Extension, x::EXPR) = generic_check(t, x, "ReentrantLock()", "`ReentrantLock` should be used with extreme caution.")
+check(t::CFunctionRule, x::EXPR) = generic_check(t, x, "@cfunction(hole_variable, hole_variable_star)", "Macro `@cfunction` should not be used.")
+check(t::SemaphoreRule, x::EXPR) = generic_check(t, x, "Semaphore(hole_variable)", "`Semaphore` should be used with extreme caution.")
+check(t::ReentrantLockRule, x::EXPR) = generic_check(t, x, "ReentrantLock()", "`ReentrantLock` should be used with extreme caution.")
 
-function check(t::Destructor_Extension, x::EXPR)
+function check(t::DestructorRule, x::EXPR)
     error_msg = "Destructors should be used with extreme caution."
     generic_check(t, x, "destructor(hole_variable, hole_variable)", error_msg)
     generic_check(t, x, "destructor(hole_variable) do hole_variable hole_variable_star end", error_msg)
 end
 
-function check(t::SpinLock_Extension, x::EXPR)
+function check(t::SpinLockRule, x::EXPR)
     msg = "`SpinLock` should be used with extreme caution."
     generic_check(t, x, "SpinLock()", msg)
     generic_check(t, x, "Threads.SpinLock()", msg)
     generic_check(t, x, "Base.Threads.SpinLock()", msg)
 end
 
-function check(t::Lock_Extension, x::EXPR)
+function check(t::LockRule, x::EXPR)
     msg = "`@lock` should be used with extreme caution."
     generic_check(t, x, "@lock hole_variable hole_variable", msg)
     generic_check(t, x, "Base.@lock hole_variable hole_variable", msg)
 end
 
-check(t::Unlock_Extension, x::EXPR) = generic_check(t, x, "unlock(hole_variable)")
-check(t::Yield_Extension, x::EXPR) = generic_check(t, x, "yield()")
-check(t::Sleep_Extension, x::EXPR) = generic_check(t, x, "sleep(hole_variable)")
-function check(t::Mmap_Extension, x::EXPR)
+check(t::UnlockRule, x::EXPR) = generic_check(t, x, "unlock(hole_variable)")
+check(t::YieldRule, x::EXPR) = generic_check(t, x, "yield()")
+check(t::SleepRule, x::EXPR) = generic_check(t, x, "sleep(hole_variable)")
+function check(t::MmapRule, x::EXPR)
     generic_check(t, x, "mmap(hole_variable_star)")
     generic_check(t, x, "Mmap.mmap(hole_variable_star)", "`mmap` should be used with extreme caution.")
 end
 
-check(t::Inbounds_Extension, x::EXPR) = generic_check(t, x, "@inbounds hole_variable")
+check(t::InboundsRule, x::EXPR) = generic_check(t, x, "@inbounds hole_variable")
 
-function check(t::Atomic_Extension, x::EXPR)
+function check(t::AtomicRule, x::EXPR)
     msg = "`Atomic` should be used with extreme caution."
     generic_check(t, x, "Atomic(hole_variable_star)", msg)
     generic_check(t, x, "Atomic{hole_variable}(hole_variable_star)", msg)
@@ -417,15 +419,15 @@ function check(t::Atomic_Extension, x::EXPR)
     generic_check(t, x, "Threads.Atomic{hole_variable}(hole_variable_star)", msg)
 end
 
-function check(t::Future_Extension, x::EXPR)
+function check(t::FutureRule, x::EXPR)
     generic_check(t, x, "Future{hole_variable}(hole_variable_star)")
     generic_check(t, x, "Future(hole_variable_star)")
 end
 
-check(t::Wait_Extension, x::EXPR) = generic_check(t, x, "wait(hole_variable)")
-check(t::Ptr_Extension, x::EXPR) = generic_check(t, x, "Ptr{hole_variable}(hole_variable)")
+check(t::WaitRule, x::EXPR) = generic_check(t, x, "wait(hole_variable)")
+check(t::PtrRule, x::EXPR) = generic_check(t, x, "Ptr{hole_variable}(hole_variable)")
 
-function check(t::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,String})
+function check(t::ArrayWithNoTypeRule, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :filename) || return
     contains(markers[:filename], "src/Compiler") || return
 
@@ -435,25 +437,25 @@ function check(t::ArrayWithNoType_Extension, x::EXPR, markers::Dict{Symbol,Strin
     generic_check(t, x, "[]", "Need a specific Array type to be provided.")
 end
 
-function check(t::Threads_Extension, x::EXPR)
+function check(t::ThreadsRule, x::EXPR)
     msg = "`@threads` should be used with extreme caution."
     generic_check(t, x, "Threads.@threads hole_variable", msg)
     generic_check(t, x, "@threads hole_variable", msg)
 end
 
-check(t::Generated_Extension, x::EXPR) = generic_check(t, x, "@generated hole_variable")
+check(t::GeneratedRule, x::EXPR) = generic_check(t, x, "@generated hole_variable")
 
-function check(t::Sync_Extension, x::EXPR)
+function check(t::SyncRule, x::EXPR)
     msg = "`@sync` should be used with extreme caution."
     generic_check(t, x, "@sync hole_variable", msg)
     generic_check(t, x, "Threads.@sync hole_variable", msg)
 end
 
-check(t::RemovePage_Extension, x::EXPR) = generic_check(t, x, "remove_page(hole_variable,hole_variable)")
-check(t::Channel_Extension, x::EXPR) = generic_check(t, x, "Channel(hole_variable_star)")
-check(t::Task_Extension, x::EXPR) = generic_check(t, x, "Task(hole_variable)")
+check(t::RemovePageRule, x::EXPR) = generic_check(t, x, "remove_page(hole_variable,hole_variable)")
+check(t::ChannelRule, x::EXPR) = generic_check(t, x, "Channel(hole_variable_star)")
+check(t::TaskRule, x::EXPR) = generic_check(t, x, "Task(hole_variable)")
 
-function check(t::ErrorException_Extension, x::EXPR)
+function check(t::ErrorExceptionRule, x::EXPR)
     generic_check(
         t,
         x,
@@ -461,7 +463,7 @@ function check(t::ErrorException_Extension, x::EXPR)
         "Use custom exception instead of the generic `ErrorException`.")
 end
 
-function check(t::Error_Extension, x::EXPR)
+function check(t::ErrorRule, x::EXPR)
     generic_check(
         t,
         x,
@@ -469,7 +471,7 @@ function check(t::Error_Extension, x::EXPR)
         "Use custom exception instead of the generic `error()`.")
 end
 
-function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
+function check(t::UnsafeRule, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :function) || return
     isnothing(match(r"_unsafe_.*", markers[:function])) || return
     isnothing(match(r"unsafe_.*", markers[:function])) || return
@@ -486,7 +488,7 @@ function check(t::Unsafe_Extension, x::EXPR, markers::Dict{Symbol,String})
         "An `unsafe_` function should be called only from an `unsafe_` function.")
 end
 
-function check(t::In_Extension, x::EXPR)
+function check(t::InRule, x::EXPR)
     msg = "Use `tin(item,collection)` instead of the Julia's `in` or `∈`."
     generic_check(t, x, "in(hole_variable,hole_variable)", msg)
     generic_check(t, x, "hole_variable in hole_variable", msg)
@@ -495,17 +497,17 @@ function check(t::In_Extension, x::EXPR)
     generic_check(t, x, "hole_variable ∈ hole_variable", msg)
 end
 
-function check(t::HasKey_Extension, x::EXPR)
+function check(t::HasKeyRule, x::EXPR)
     msg = "Use `thaskey(dict,key)` instead of the Julia's `haskey`."
     generic_check(t, x, "haskey(hole_variable,hole_variable)", msg)
 end
 
-function check(t::Equal_Extension, x::EXPR)
+function check(t::EqualRule, x::EXPR)
     msg = "Use `tequal(dict,key)` instead of the Julia's `equal`."
     generic_check(t, x, "equal(hole_variable,hole_variable)", msg)
 end
 
-function check(t::Uv_Extension, x::EXPR)
+function check(t::UvRule, x::EXPR)
     generic_check(
         t,
         x,
@@ -513,7 +515,7 @@ function check(t::Uv_Extension, x::EXPR)
         "`uv_` functions should be used with extreme caution.")
 end
 
-function check(t::Splatting_Extension, x::EXPR)
+function check(t::SplattingRule, x::EXPR)
     generic_check(
         t,
         x,
@@ -527,7 +529,7 @@ function check(t::Splatting_Extension, x::EXPR)
         "Splatting (`...`) should not be used with dynamically sized containers. This may result in performance degradation. See https://github.com/RelationalAI/RAIStyle#splatting for more information.")
 end
 
-function check(t::UnreachableBranch_Extension, x::EXPR)
+function check(t::UnreachableBranchRule, x::EXPR)
     generic_check(
         t,
         x,
@@ -550,7 +552,7 @@ function check(t::UnreachableBranch_Extension, x::EXPR)
         "Unreachable branch.")
 end
 
-function check(t::StringInterpolation_Extension, x::EXPR)
+function check(t::StringInterpolationRule, x::EXPR)
     # We are interested only in string with interpolation, which begins with x.head==:string
     x.head == :string || return
 
@@ -565,7 +567,7 @@ function check(t::StringInterpolation_Extension, x::EXPR)
     open_parent_count != dollars_count && seterror!(x, LintRuleReport(t, error_msg))
 end
 
-function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
+function check(t::RelPathAPIUsageRule, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :filename) || return
     contains(markers[:filename], "src/Compiler/Front") || return
 
@@ -577,7 +579,7 @@ function check(t::RelPathAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,Strin
     generic_check(t, x, "relpath_from_signature(hole_variable)", "Usage of method `relpath_from_signature` is not allowed in this context.")
 end
 
-function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol,String})
+function check(t::NonFrontShapeAPIUsageRule, x::EXPR, markers::Dict{Symbol,String})
     haskey(markers, :filename) || return
     # In the front-end and in FFI, we are allowed to refer to `Shape`
     contains(markers[:filename], "src/FrontCompiler") && return
@@ -597,7 +599,7 @@ function check(t::NonFrontShapeAPIUsage_Extension, x::EXPR, markers::Dict{Symbol
     generic_check(t, x, "Shape", "Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.")
 end
 
-function check(t::InterpolationInSafeLog_Extension, x::EXPR)
+function check(t::InterpolationInSafeLogRule, x::EXPR)
     generic_check(t, x, "@warnv_safe_to_log hole_variable \"LINT_STRING_WITH_INTERPOLATION\"", "Safe warning log has interpolation.")
 end
 
@@ -611,7 +613,16 @@ function all_arguments_are_safe(x::EXPR)
     is_safe_macro_call(y) =
         y.head == :macrocall && y.args[1].head == :IDENTIFIER && y.args[1].val == "@safe"
 
-    is_safe_literal(x) = x.head in [:NOTHING, :INTEGER, :FLOAT, :TRUE, :FALSE]
+    is_safe_literal(x) = x.head in [:NOTHING,
+                                    :INTEGER,
+                                    :FLOAT,
+                                    :TRUE,
+                                    :FALSE,
+                                    :HEXINT,
+                                    :BININT,
+                                    :CHAR,
+                                    :OCTINT
+                                    ]
 
     for arg in x.args[2:end]
         # This is safe

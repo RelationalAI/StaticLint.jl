@@ -5,7 +5,7 @@ global MAX_REPORTED_ERRORS = 60 # 1_000_000
 
 # Each individual rule violation report
 mutable struct LintRuleReport
-    rule::ExtendedRule
+    rule::LintRule
     msg::String
     template::String
     file::String
@@ -15,7 +15,7 @@ mutable struct LintRuleReport
 
     offset::Int64
 end
-LintRuleReport(rule::ExtendedRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0, false, 0)
+LintRuleReport(rule::LintRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0, false, 0)
 
 
 # Global result of executing Lint on files and folders
@@ -232,7 +232,7 @@ end
 
 function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport)
     # Do not print anything if it is not a fatal violation
-    lint_report.rule isa FatalExtendedRule || return
+    lint_report.rule isa FatalLintRule || return
     printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
     print(io, " ")
     print(io, lint_report.msg)
@@ -376,9 +376,9 @@ function run_lint(
     _,_,lint_reports = StaticLint.lint_file(rootpath)
     print_header(formatter, io, rootpath)
 
-    is_recommendation(r::LintRuleReport) = r.rule isa RecommendationExtendedRule
-    is_violation(r::LintRuleReport) = r.rule isa ViolationExtendedRule
-    is_fatal(r::LintRuleReport) = r.rule isa FatalExtendedRule
+    is_recommendation(r::LintRuleReport) = r.rule isa RecommendationLintRule
+    is_violation(r::LintRuleReport) = r.rule isa ViolationLintRule
+    is_fatal(r::LintRuleReport) = r.rule isa FatalLintRule
 
     violation_reports = filter(is_violation, lint_reports)
     recommandation_reports = filter(is_recommendation, lint_reports)

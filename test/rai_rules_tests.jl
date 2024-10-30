@@ -134,16 +134,27 @@ end
 end
 
 @testset "forbidden functions" begin
-    @testset "nthreads() as a const" begin
+    @testset "Initializing a const variable with functions" begin
         source = """
             const x = Threads.nthreads()
+            const y = Deployment.is_local_deployment()
+            const z = is_local_deployment()
+            const u = foo() # Allowed
+
             function f()
-                return x
+                if Deployment.is_local_deployment()
+                    print("It is all good!")
+                end
+                return x + Threads.nthreads()
             end
             """
-        @test lint_has_error_test(source)
+        @test count_lint_errors(source) == 3
         @test lint_test(source,
             "Line 1, column 11: `Threads.nthreads()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 2, column 11: `Deployment.is_local_deployment()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 3, column 11: `is_local_deployment()` should not be used in a constant variable.")
     end
 
     @testset "nthreads() not as a const" begin
@@ -276,14 +287,13 @@ end
 
     @testset "Semaphore" begin
         source = """
-            const sem = Semaphore(5)
             function foo()
                 return Semaphore(10)
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 1, column 13: `Semaphore` should be used with extreme caution.")
+            "Line 2, column 12: `Semaphore` should be used with extreme caution.")
     end
 
     @testset "ReentrantLock" begin
@@ -1930,6 +1940,8 @@ end
         @info @safe("Safe logging")
 
         @warnv 1 @safe("Safe logging")
+
+        @warnv 1 @safe("Safe logging with non-common literals") 0x12 'c' 0b0 0o0
 
         @infov 1 @safe(
                  "[Compilation] \
