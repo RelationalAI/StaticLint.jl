@@ -531,7 +531,16 @@ function all_arguments_are_safe(x::EXPR)
     is_safe_macro_call(y) =
         y.head == :macrocall && y.args[1].head == :IDENTIFIER && y.args[1].val == "@safe"
 
-    is_safe_literal(x) = x.head in [:NOTHING, :INTEGER, :FLOAT, :TRUE, :FALSE]
+    is_safe_literal(x) = x.head in [:NOTHING,
+                                    :INTEGER,
+                                    :FLOAT,
+                                    :TRUE,
+                                    :FALSE,
+                                    :HEXINT,
+                                    :BININT,
+                                    :CHAR,
+                                    :OCTINT
+                                    ]
 
     for arg in x.args[2:end]
         # This is safe

@@ -1943,6 +1943,8 @@ end
 
         @warnv 1 @safe("Safe logging")
 
+        @warnv 1 @safe("Safe logging with non-common literals") 0x12 'c' 0b0 0o0
+
         @infov 1 @safe(
                  "[Compilation] \
                  Creating a new BeTreeV2 specialization: $(K) and $(V) where eps = $(E) \n\
