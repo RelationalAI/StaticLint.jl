@@ -230,7 +230,8 @@ function print_summary(::PreCommitFormat, io::IO, result::LintResult)
     printstyled(io, "Note that the list above only show fatal violations\n", color=:red)
 end
 
-function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport)
+function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport, result::LintResult)
+    should_print_report(result) || return
     # Do not print anything if it is not a fatal violation
     lint_report.rule isa FatalLintRule || return
     printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
@@ -238,6 +239,7 @@ function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport)
     print(io, lint_report.msg)
     print(io, " ")
     println(io, lint_report.file)
+    result.printout_count += 1
 end
 
 should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
@@ -274,12 +276,15 @@ function print_header(::PlainFormat, io::IO, rootpath::String)
     printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
 end
 
-function print_report(::PlainFormat, io::IO, lint_report::LintRuleReport)
+function print_report(::PlainFormat, io::IO, lint_report::LintRuleReport, result::LintResult)
+    should_print_report(result) || return
     printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
     print(io, " ")
     print(io, lint_report.msg)
     print(io, " ")
     println(io, lint_report.file)
+    result.printout_count += 1
+
 end
 
 function print_summary(
@@ -321,7 +326,9 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
 end
 
-function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleReport)
+function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleReport, result::LintResult)
+    should_print_report(result) || return
+
     corrected_file_name = remove_prefix_from_filename(lint_report.file, format)
 
     coordinates = "Line $(lint_report.line), column $(lint_report.column):"
@@ -335,6 +342,7 @@ function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleRepor
     # Produce workflow command to see results in the PR file changed tab:
     # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
     println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(lint_report.line),col=$(lint_report.column)::$(lint_report.msg)")
+    result.printout_count += 1
 end
 
 print_summary(
@@ -391,26 +399,17 @@ function run_lint(
     # Fatal reports are printed in io_violations, but first
     io_tmp = isnothing(io_violations) ? io : io_violations
     for r in fatalviolation_reports
-        if should_print_report(result)
-            print_report(formatter, io_tmp, r)
-            result.printout_count += 1
-        end
+        print_report(formatter, io_tmp, r, result)
     end
 
     io_tmp = isnothing(io_violations) ? io : io_violations
     for r in violation_reports
-        if should_print_report(result)
-            print_report(formatter, io_tmp, r)
-            result.printout_count += 1
-        end
+        print_report(formatter, io_tmp, r, result)
     end
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
     for r in recommandation_reports
-        if should_print_report(result)
-            print_report(formatter, io_tmp, r)
-            result.printout_count += 1
-        end
+        print_report(formatter, io_tmp, r, result)
     end
 
     # We run Lint on a single file.
