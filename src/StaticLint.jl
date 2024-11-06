@@ -2,6 +2,7 @@ module StaticLint
 
 using CSTParser: CSTParser, EXPR
 import InteractiveUtils
+using PrecompileTools: @setup_workload, @compile_workload
 
 mutable struct LintMeta
     error

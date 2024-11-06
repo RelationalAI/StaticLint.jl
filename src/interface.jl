@@ -381,39 +381,45 @@ function run_lint(
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,_,lint_reports = StaticLint.lint_file(rootpath)
-    print_header(formatter, io, rootpath)
+    @setup_workload begin
+        @compile_workload begin
+            _,_,lint_reports = StaticLint.lint_file(rootpath)
 
-    is_recommendation(r::LintRuleReport) = r.rule isa RecommendationLintRule
-    is_violation(r::LintRuleReport) = r.rule isa ViolationLintRule
-    is_fatal(r::LintRuleReport) = r.rule isa FatalLintRule
+            print_header(formatter, io, rootpath)
 
-    violation_reports = filter(is_violation, lint_reports)
-    recommandation_reports = filter(is_recommendation, lint_reports)
-    fatalviolation_reports = filter(is_fatal, lint_reports)
+            is_recommendation(r::LintRuleReport) = r.rule isa RecommendationLintRule
+            is_violation(r::LintRuleReport) = r.rule isa ViolationLintRule
+            is_fatal(r::LintRuleReport) = r.rule isa FatalLintRule
 
-    count_violations = length(violation_reports)
-    count_recommendations = length(recommandation_reports)
-    count_fataviolations = length(fatalviolation_reports)
+            violation_reports = filter(is_violation, lint_reports)
+            recommandation_reports = filter(is_recommendation, lint_reports)
+            fatalviolation_reports = filter(is_fatal, lint_reports)
 
-    # Fatal reports are printed in io_violations, but first
-    io_tmp = isnothing(io_violations) ? io : io_violations
-    for r in fatalviolation_reports
-        print_report(formatter, io_tmp, r, result)
+            count_violations = length(violation_reports)
+            count_recommendations = length(recommandation_reports)
+            count_fataviolations = length(fatalviolation_reports)
+
+            # Fatal reports are printed in io_violations, but first
+            io_tmp = isnothing(io_violations) ? io : io_violations
+            for r in fatalviolation_reports
+                print_report(formatter, io_tmp, r, result)
+            end
+
+            io_tmp = isnothing(io_violations) ? io : io_violations
+            for r in violation_reports
+                print_report(formatter, io_tmp, r, result)
+            end
+
+            io_tmp = isnothing(io_recommendations) ? io : io_recommendations
+            for r in recommandation_reports
+                print_report(formatter, io_tmp, r, result)
+            end
+
+            # We run Lint on a single file.
+            append!(result, LintResult(1, count_violations, count_recommendations, count_fataviolations, [rootpath], 0, lint_reports))
+        end
     end
 
-    io_tmp = isnothing(io_violations) ? io : io_violations
-    for r in violation_reports
-        print_report(formatter, io_tmp, r, result)
-    end
-
-    io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-    for r in recommandation_reports
-        print_report(formatter, io_tmp, r, result)
-    end
-
-    # We run Lint on a single file.
-    append!(result, LintResult(1, count_violations, count_recommendations, count_fataviolations, [rootpath], 0, lint_reports))
     return result
 end
 
