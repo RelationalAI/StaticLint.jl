@@ -77,7 +77,8 @@ function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
         end
     end
 
-    for T in all_extended_rule_types[]
+    # for T in all_extended_rule_types[]
+    for T in [LogStatementsMustBeSafe]
         check_with_process(T, x, markers)
         # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
         if haserror(x) && x.meta.error isa LintRuleReport
