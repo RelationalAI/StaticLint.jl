@@ -219,6 +219,8 @@ struct InterpolationInSafeLogRule <: RecommendationLintRule end
 struct UseOfStaticThreads <: ViolationLintRule end
 struct LogStatementsMustBeSafe <: FatalLintRule end
 
+struct ShowErrorReporting <: RecommendationLintRule end
+
 const all_extended_rule_types = Ref{Any}(
     vcat(
         InteractiveUtils.subtypes(RecommendationLintRule),
@@ -585,3 +587,8 @@ function check(t::LogStatementsMustBeSafe, x::EXPR)
     end
 end
 
+function check(t::ShowErrorReporting, x::EXPR)
+    msg = "Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data."
+    # generic_check(t, x, "showerror(hole_variable_star)", msg)
+    generic_check(t, x, "showerror", msg)
+end

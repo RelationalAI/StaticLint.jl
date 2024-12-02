@@ -1959,7 +1959,7 @@ end
             precompile_statement=@safe(repr(statement)),
             # Log the message that the exception would print, else JSONLogger logs each of
             # the fields of the exception separately which is much less useful.
-            exception=@safe(sprint(showerror, e)),
+            exception=@safe(sprint(show, e)),
             maxlog=100,
         )
     end
@@ -2027,4 +2027,19 @@ end
         end
         @test result_matching
     end
+end
+
+@testset "showerror reporting" begin
+    source = """
+        function rusage()
+            showerror("an error")
+            map(showerror, ["a", "b"]);
+            safe_showerror("an error")
+        end
+        """
+    @test count_lint_errors(source) == 2
+    @test lint_test(source,
+        "Line 2, column 5: Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data.")
+    @test lint_test(source,
+        "Line 3, column 9: Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data.")
 end
