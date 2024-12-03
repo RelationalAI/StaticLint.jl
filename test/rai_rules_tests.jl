@@ -1979,8 +1979,8 @@ end
         )
     end
     """
-    @test count_lint_errors(source) == 12
-    for line in 2:count_lint_errors(source) + 1
+    @test count_lint_errors(source) == 17
+    for line in 2:12 + 1
         @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with `@safe(...)`.")
     end
 end

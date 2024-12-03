@@ -219,7 +219,7 @@ struct InterpolationInSafeLogRule <: RecommendationLintRule end
 struct UseOfStaticThreads <: ViolationLintRule end
 struct LogStatementsMustBeSafe <: FatalLintRule end
 struct ShowErrorReporting <: RecommendationLintRule end
-struct InterpolationOnlyInSafe <: ViolationExtendedRule end
+struct InterpolationOnlyInSafe <: ViolationLintRule end
 
 const all_extended_rule_types = Ref{Any}(
     vcat(
@@ -530,7 +530,7 @@ function check(t::UseOfStaticThreads, x::EXPR)
     generic_check(t, x, "@threads :static hole_variable_star", msg)
     generic_check(t, x, "Threads.@threads :static hole_variable_star", msg)
 end
-    
+
 function all_arguments_are_safe(x::EXPR)
     is_safe_macro_call(y) =
         y.head == :macrocall && y.args[1].head == :IDENTIFIER && y.args[1].val == "@safe"
@@ -592,8 +592,13 @@ function check(t::ShowErrorReporting, x::EXPR)
     # generic_check(t, x, "showerror(hole_variable_star)", msg)
     generic_check(t, x, "showerror", msg)
 end
-            
+
 function check(t::InterpolationOnlyInSafe, x::EXPR, markers::Dict{Symbol,String})
+    # Allow usage in Front benchmarks
+    contains(markers[:filename], "bench") && return
+    # Allow usages in tests
+    contains(markers[:filename], "test") && return
+
     # We are in a macro call and the macro is @safe, we merely exit
     haskey(markers, :macrocall) && markers[:macrocall] == "@safe" && return
 
@@ -602,5 +607,5 @@ function check(t::InterpolationOnlyInSafe, x::EXPR, markers::Dict{Symbol,String}
         Log messages must always be constructed via @safe("..") strings. If this interpolation is used in a log message, it should be a @safe-string. Please try this instead: @safe("...$(x)..."). If this is not being used for logging, you can lint-ignore this line.
         """
 
-    generic_check(t, x, "\"LINT_STRING_WITH_INTERPOLATION\"", msg)            
+    generic_check(t, x, "\"LINT_STRING_WITH_INTERPOLATION\"", msg)
 end
