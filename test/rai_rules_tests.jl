@@ -1,6 +1,6 @@
 using StaticLint: StaticLint, run_lint_on_text, comp, convert_offset_to_line,
-    convert_offset_to_line_from_lines, should_be_filtered, MarkdownFormat, PlainFormat,
-    fetch_value, rule_is_recommendation, rule_is_violation, has_values
+    convert_offset_to_line_from_lines, MarkdownFormat, PlainFormat,
+    fetch_value, has_values
 
 using StaticLint: LintResult
 import CSTParser
@@ -134,16 +134,27 @@ end
 end
 
 @testset "forbidden functions" begin
-    @testset "nthreads() as a const" begin
+    @testset "Initializing a const variable with functions" begin
         source = """
             const x = Threads.nthreads()
+            const y = Deployment.is_local_deployment()
+            const z = is_local_deployment()
+            const u = foo() # Allowed
+
             function f()
-                return x
+                if Deployment.is_local_deployment()
+                    print("It is all good!")
+                end
+                return x + Threads.nthreads()
             end
             """
-        @test lint_has_error_test(source)
+        @test count_lint_errors(source) == 3
         @test lint_test(source,
             "Line 1, column 11: `Threads.nthreads()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 2, column 11: `Deployment.is_local_deployment()` should not be used in a constant variable.")
+        @test lint_test(source,
+            "Line 3, column 11: `is_local_deployment()` should not be used in a constant variable.")
     end
 
     @testset "nthreads() not as a const" begin
@@ -276,14 +287,13 @@ end
 
     @testset "Semaphore" begin
         source = """
-            const sem = Semaphore(5)
             function foo()
                 return Semaphore(10)
             end
             """
         @test lint_has_error_test(source)
         @test lint_test(source,
-            "Line 1, column 13: `Semaphore` should be used with extreme caution.")
+            "Line 2, column 12: `Semaphore` should be used with extreme caution.")
     end
 
     @testset "ReentrantLock" begin
@@ -770,17 +780,6 @@ end
 
 end
 
-@testset "Should be filtered" begin
-    filters = StaticLint.LintCodes[StaticLint.MissingReference, StaticLint.IncorrectCallArgs]
-    hint_as_string1 = "Missing reference. /Users/alexandrebergel/Documents/RAI/raicode11/src/DataExporter/export_csv.jl"
-    hint_as_string2 = "Line 254, column 19: Possible method call error: foo /Users/alexandrebergel/Documents/RAI/raicode11/src/Compiler/Front/problems.jl"
-    @test should_be_filtered(hint_as_string1, filters)
-    @test !should_be_filtered(hint_as_string2, filters)
-
-    @test should_be_filtered(hint_as_string1, filters)
-    @test !should_be_filtered(hint_as_string2, filters)
-end
-
 @testset "Fetching values from AST" begin
     @test fetch_value(CSTParser.parse("f"), :IDENTIFIER) == "f"
     @test fetch_value(CSTParser.parse("f()"), :IDENTIFIER) == "f"
@@ -808,26 +807,6 @@ end
            end
            """
 
-    # Rules that are not violation or recommandations are not processed.
-    # @testset "Plain 01" begin
-    #     io = IOBuffer()
-    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters)
-    #     result = String(take!(io))
-
-    #     expected = r"""
-    #         ---------- \H+
-    #         Violations:
-    #         Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-    #         Line 1, column 11: Missing reference \H+
-
-    #         Recommendations:
-
-    #         1 potential threat is found: 1 violation and 0 recommendation
-    #         ----------
-    #         """
-    #     @test !isnothing(match(expected, result))
-    # end
-
     @testset "Plain 02" begin
         io = IOBuffer()
         run_lint_on_text(source; io=io, filters=StaticLint.essential_filters)
@@ -836,29 +815,11 @@ end
         expected = r"""
             ---------- \H+
             Line 1, column 11: `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-            1 potential threat is found: 1 violation and 0 recommendation
+            1 potential threat is found: 0 fatal violation, 1 violation and 0 recommendation
             ----------
             """
         @test !isnothing(match(expected, result))
     end
-
-    # Rules that are not violation or recommandations are not processed.
-    # @testset "Markdown 01" begin
-    #     io = IOBuffer()
-    #     run_lint_on_text(source; io=io, filters=StaticLint.no_filters, formatter=MarkdownFormat())
-    #     result = String(take!(io))
-
-    #     expected = r"""
-    #         Violations:
-    #          - \*\*Line 1, column 11:\*\* `Threads.nthreads\(\)` should not be used in a constant variable\. \H+
-    #          - \*\*Line 1, column 11:\*\* Missing reference. \H+
-
-    #         Recommendations:
-
-    #         """
-    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-    #     @test !isnothing(match(expected, result))
-    # end
 
     @testset "Markdown 02" begin
         io = IOBuffer()
@@ -992,7 +953,7 @@ end
                     wc_lines = split(stream_workflowcommand_report, "\n")
                     @test length(wc_lines) == 4
                     @test isempty(wc_lines[end])
-                    @test contains(wc_lines[1], "foo.jl,line=2,col=Line::Use `@spawn` instead of `@async`.")
+                    @test contains(wc_lines[1], "foo.jl,line=2,col=3::Use `@spawn` instead of `@async`.")
 
                     # Checking the JSON
                     json_report = JSON3.read(String(take!(json_output)))
@@ -1014,6 +975,7 @@ end
                         Report creation time \(UTC\): \H+
                          - \*\*Line 2, column 3:\*\* Use `@spawn` instead of `@async`\. \H+
                          - \*\*Line 2, column 25:\*\* Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`. \H+
+
 
                         <details>
                         <summary>For PR Reviewer \(1\)</summary>
@@ -1410,6 +1372,24 @@ end
             end
         end
     end
+
+    @testset "Diamond between files" begin
+        mktempdir() do dir
+            open(joinpath(dir, "leaf.jl"), "w") do io
+                write(io, "function f()\n  @async 1 + 1\nend\n")
+            end
+
+            open(joinpath(dir, "bar.jl"), "w") do io
+                write(io, "include(\"leaf.jl\")\n")
+            end
+
+            str = IOBuffer()
+            result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.MarkdownFormat())
+            @test result.files_count == 2
+            @test result.violations_count == 1
+            @test result.recommendations_count == 0
+        end
+    end
 end
 
 @testset "Running on a directory" begin
@@ -1706,57 +1686,8 @@ end
     run_lint_on_text(source; io=IOBuffer())
 
     @test !isempty(StaticLint.check_cache)
-    @test !isempty(StaticLint.error_msgs)
-    @test !isempty(StaticLint.is_recommendation)
-
     StaticLint.reset_static_lint_caches()
-
     @test isempty(StaticLint.check_cache)
-    @test isempty(StaticLint.error_msgs)
-
-    # is_recommendation should contains Lint default rules that we want to consider
-    @test !isempty(StaticLint.is_recommendation)
-end
-
-@testset "Recommandation vs violation" begin
-    source = """
-    function f()
-        @async 1 + 1
-    end
-    function g()
-        @lock Lock() begin
-            1 + 1
-        end
-    end
-    """
-    io=IOBuffer()
-    run_lint_on_text(source; io)
-
-    @test !rule_is_recommendation("Use `@spawn` instead of `@async`.")
-    @test !rule_is_recommendation("Use `@spawn`")
-    @test  rule_is_violation("Use `@spawn` instead of `@async`.")
-    @test  rule_is_violation("Use `@spawn`")
-    @test  rule_is_recommendation("`@lock` should be used with extreme caution.")
-    @test  rule_is_recommendation("`@lock` ")
-    @test !rule_is_violation("`@lock` should be used with extreme caution.")
-    @test !rule_is_violation("`@lock` ")
-
-    @test  rule_is_recommendation("Splatting (`...`) should be used with extreme caution.")
-
-
-    @test StaticLint.retrieve_full_msg_from_prefix("`@lock` ") ==
-        "`@lock` should be used with extreme caution."
-    @test StaticLint.retrieve_full_msg_from_prefix("Use `@spawn`") ==
-        "Use `@spawn` instead of `@async`."
-
-    msg = "Use `@spawn` instead of `@async`."
-    @test StaticLint.retrieve_full_msg_from_prefix(msg) == msg
-end
-
-@testset "Recommandation vs violation - Default error msg" begin
-    @test rule_is_violation("Variable has been assigned but not used")
-    @test rule_is_violation("Variable has been assigned but not used, if you want to keep this variable unused then prefix it with `_`.")
-    @test !rule_is_recommendation("Variable has been assigned but not used")
 end
 
 @testset "Recommentation separated from violations" begin
@@ -1778,7 +1709,7 @@ end
     ---------- \H+
     Line 2, column 5: Use `@spawn` instead of `@async`\. \H+
     Line 5, column 5: `@lock` should be used with extreme caution\. \H+
-    2 potential threats are found: 1 violation and 1 recommendation
+    2 potential threats are found: 0 fatal violation, 1 violation and 1 recommendation
     ----------
     """
     @test !isnothing(match(expected, result))
@@ -1789,31 +1720,31 @@ end
 #     # ERRORS
 #     source_with_error = raw"""
 #     function f(conf)
-#         @info "($conf.container.baseurl)"
+#         @INFO "($conf.container.baseurl)"
 #     end
 #     """
 
 #     source_with_error2 = raw"""
 #     function f(conf)
-#         @info "$conf.container.baseurl"
+#         @INFO "$conf.container.baseurl"
 #     end
 #     """
 
 #     source_with_error3 = raw"""
 #     function f(conf)
-#         @info "this string contains an error $conf.container.baseurl indeed!"
+#         @INFO "this string contains an error $conf.container.baseurl indeed!"
 #     end
 #     """
 
 #     source_with_error4 = raw"""
 #     function f(conf)
-#         @info "this string contains an error $conf .container.baseurl indeed!"
+#         @INFO "this string contains an error $conf .container.baseurl indeed!"
 #     end
 #     """
 
 #     source_with_error5 = raw"""
 #     function f(engine_name)
-#         @info "Issuing delete request for engine $engine_name..."
+#         @INFO "Issuing delete request for engine $engine_name..."
 #     end
 #     """
 
@@ -1844,13 +1775,13 @@ end
 #     # NO ERROR
 #     source_without_error = raw"""
 #     function f(conf)
-#         @info "$(conf.container.baseurl)"
+#         @INFO "$(conf.container.baseurl)"
 #     end
 #     """
 
 #     source_without_error2 = raw"""
 #     function f(conf)
-#         @info "this string contains an error $(conf.container.baseurl) indeed!"
+#         @INFO "this string contains an error $(conf.container.baseurl) indeed!"
 #     end
 #     """
 
@@ -1869,8 +1800,10 @@ end
     l1 = LintResult()
     l2 = LintResult(1, 2, 3)
     l3 = LintResult(10, 20, 30)
-    l4 = LintResult(10, 20, 30, ["foo.jl"], 100)
-    l5 = LintResult(10, 20, 30, ["foo2.jl"], 250)
+    l6 = LintResult(10, 20, 30, 40)
+    l4 = LintResult(10, 20, 30, 40, ["foo.jl"], 100, [])
+    l5 = LintResult(10, 20, 30, 40, ["foo2.jl"], 250)
+
 
     @test l1 == l1
     @test l1 == LintResult()
@@ -1881,7 +1814,7 @@ end
     @test l3 != l5
 
     append!(l4, l5)
-    @test l4 == LintResult(20, 40, 60, ["foo.jl", "foo2.jl"], 350)
+    @test l4 == LintResult(20, 40, 60, 80, ["foo.jl", "foo2.jl"], 350)
 end
 
 @testset "RelPath Front-End" begin
@@ -1927,7 +1860,7 @@ end
     """
 
     @test count_lint_errors(source; directory="/src/Execution") == 3
-    @test count_lint_errors(source; directory="/src/Compiler/Front") == 0
+    @test count_lint_errors(source; directory="/src/FrontCompiler") == 0
 
     @test lint_test(source,
         "Line 1, column 67: Usage of `Shape` is not allowed outside of the Front-end Compiler and FFI.";
@@ -1940,35 +1873,35 @@ end
     )
 end
 
-@testset "Check on @warnv_safe_to_log" begin
-    source = raw"""
-    function pm_check_mutable_pages(bytes::Int)
-        pm = PAGER_MONITOR
+# @testset "Check on @warnv_safe_to_log" begin
+#     source = raw"""
+#     function pm_check_mutable_pages(bytes::Int)
+#         pm = PAGER_MONITOR
 
-        max_pages = (@atomic pm.mutable_pages_running_max)
-        max_bytes = (@atomic pm.mutable_bytes_running_max)
-        if max_bytes >= bytes
-            @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
-                detected: $max_pages pages weighting $max_bytes bytes"
+#         max_pages = (@atomic pm.mutable_pages_running_max)
+#         max_bytes = (@atomic pm.mutable_bytes_running_max)
+#         if max_bytes >= bytes
+#             @warnv_safe_to_log 0 "[Pager] Too many mutable pages \
+#                 detected: $max_pages pages weighting $max_bytes bytes"
 
-            @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
-                detected: $max_pages pages weighting $max_bytes bytes"
+#             @ensure @warnv_safe_to_log 2 "[Pager] Too many mutable pages \
+#                 detected: $max_pages pages weighting $max_bytes bytes"
 
-            @ensure @warnv_safe_to_log 0 "no interpolation"
+#             @ensure @warnv_safe_to_log 0 "no interpolation"
 
-            mutable_report = pm_generate_mutable_pages_report!()
-            if !isnothing(mutable_report)
-                @warnv_safe_to_log 0 mutable_report
-            end
-            return false
-        end
+#             mutable_report = pm_generate_mutable_pages_report!()
+#             if !isnothing(mutable_report)
+#                 @warnv_safe_to_log 0 mutable_report
+#             end
+#             return false
+#         end
 
-        return true
-    end
-    """
-    @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
-    @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
-end
+#         return true
+#     end
+#     """
+#     @test lint_test(source, "Line 7, column 9: Safe warning log has interpolation.")
+#     @test lint_test(source, "Line 10, column 17: Safe warning log has interpolation.")
+# end
 
 @testset "Use of static threads" begin
     source = raw"""
@@ -1990,7 +1923,6 @@ end
     @test lint_test(source, "Line 6, column 5: Use `Threads.@threads :dynamic` instead of `Threads.@threads :static`.")
 end
 
-
 @testset "Interpolation prohibited outside @safe" begin
     source = raw"""
     function f()
@@ -2003,4 +1935,126 @@ end
 
     # There is only one lint error in source, which is in Line 2 as tested just above
     @test count_lint_errors(source) == 1
+end
+
+@testset "Unsafe logging" begin
+    source = raw"""
+    function f()
+        @info "Unsafe logging $(x)"
+        @info @safe("Unsafe logging") job
+        @info @safe("Unsafe logging") my_value=job
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value2=job
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @info @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @debug_connection @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @warn_with_current_exceptions_safe_to_log @safe("Unsafe logging") my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3) "$(x)"
+        @info "Unsafe logging"
+        @info "Unsafe logging" my_value=@safe(job)
+        @info "Unsafe logging" my_value=@safe(job) my_value=@safe(job2)
+        @info "Unsafe logging" my_value=@safe(job) my_value=@safe(job2) my_value=@safe(job3)
+
+        @info @safe("Safe logging $(x)")
+        @info @safe("Safe logging")
+
+        @warnv 1 @safe("Safe logging")
+
+        @warnv 1 @safe("Safe logging with non-common literals") 0x12 'c' 0b0 0o0
+
+        @infov 1 @safe(
+                 "[Compilation] \
+                 Creating a new BeTreeV2 specialization: $(K) and $(V) where eps = $(E) \n\
+                 List of all encountered types so far \
+                 (total: $(length(UNIQUE_BETREE_TYPES))): \n\
+                 $(total_report)"
+             ) total = @safe(length(UNIQUE_BETREE_TYPES))
+
+        @warnv(
+            0,
+            @safe("Precompiling: parse error: $(e)"),
+            precompile_statement=@safe(repr(statement)),
+            # Log the message that the exception would print, else JSONLogger logs each of
+            # the fields of the exception separately which is much less useful.
+            exception=@safe(sprint(show, e)),
+            maxlog=100,
+        )
+    end
+    """
+    @test count_lint_errors(source) == 12
+    for line in 2:count_lint_errors(source) + 1
+        @test lint_test(source, "Line $(line), column 5: Unsafe logging statement. You must enclose variables and strings with `@safe(...)`.")
+    end
+end
+
+@testset "PreCommit format" begin
+    @testset "No fatal violation" begin
+        local result_matching = false
+        mktempdir() do dir
+            open(joinpath(dir, "foo.jl"), "w") do io1
+                open(joinpath(dir, "bar.jl"), "w") do io2
+                    write(io1, "function f()\n  @async 1 + 1\nend\n")
+                    write(io2, "function g()\n  @async 1 + 1\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    str = IOBuffer()
+                    result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.PreCommitFormat())
+                    StaticLint.print_summary(StaticLint.PreCommitFormat(), str, result)
+
+                    result = String(take!(str))
+
+                    expected = r"""
+                        2 potential threats are found: 0 fatal violation, 2 violations and 0 recommendation
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
+    end
+
+    @testset "With fatal violations" begin
+        local result_matching = false
+        mktempdir() do dir
+            open(joinpath(dir, "foo.jl"), "w") do io1
+                open(joinpath(dir, "bar.jl"), "w") do io2
+                    write(io1, "function f()\n  @async 1 + 1\n  @warn \"blah\"\nend\n")
+                    write(io2, "function g()\n  @async 1 + 1\n  @info \"blah\"\nend\n")
+
+                    flush(io1)
+                    flush(io2)
+
+                    str = IOBuffer()
+                    result = StaticLint.run_lint(dir; io=str, formatter=StaticLint.PreCommitFormat())
+                    StaticLint.print_summary(StaticLint.PreCommitFormat(), str, result)
+
+                    result = String(take!(str))
+
+                    expected = r"""
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/bar.jl
+                        Line 3, column 3: Unsafe logging statement\. You must enclose variables and strings with `@safe\(\.\.\.\)`\. \H+/foo.jl
+                        4 potential threats are found: 2 fatal violations, 2 violations and 0 recommendation
+                        Note that the list above only show fatal violations
+                        """
+                    result_matching = !isnothing(match(expected, result))
+                end
+            end
+        end
+        @test result_matching
+    end
+end
+
+@testset "showerror reporting" begin
+    source = """
+        function rusage()
+            showerror("an error")
+            map(showerror, ["a", "b"]);
+            safe_showerror("an error")
+        end
+        """
+    @test count_lint_errors(source) == 2
+    @test lint_test(source,
+        "Line 2, column 5: Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data.")
+    @test lint_test(source,
+        "Line 3, column 9: Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data.")
 end

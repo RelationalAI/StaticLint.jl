@@ -2,9 +2,15 @@
 
 StaticLint is a static code analyzer for Julia. It searches for patterns in Julia source code, such patterns aiming to indicate issues and deserve to be reported to the end-user.
 
-## Installing and Running StaticLint 
+## History
 
-Installing and running StaticLint.jl is easy. You just need to clone this repository _outside_ the Julia project you would like to analyze. Although you add it as a dependency, there is no good reason to mess up with your local `Project.toml` and `Manifest.toml`. 
+This section lists the addition, modification, and removal of lint rules. This is useful for explaining variations in the [StaticLint dashboard](https://app.datadoghq.com/dashboard/a68-4u2-rs4/staticlint-dashboard?fromUser=false&refresh_mode=sliding&from_ts=1726390684921&to_ts=1728982684921&live=true).
+
+- 2024-10-15: Safe logging lint rules. [URL](https://relationalai.slack.com/archives/C07JDR32FG8/p1728659894454119), [PR](https://github.com/RelationalAI/StaticLint.jl/pull/85/files)
+
+## Installing and Running StaticLint
+
+Installing and running StaticLint.jl is easy. You just need to clone this repository _outside_ the Julia project you would like to analyze. Although you add it as a dependency, there is no good reason to mess up with your local `Project.toml` and `Manifest.toml`.
 
 ## Basic usage
 
@@ -47,8 +53,8 @@ The expression above outputs 1928 potential threats.
 
 You may want to contribute to StaticLint.jl for many reasons. Here are a few of them:
 
- - _A rule needs to be better documented_. It is easy to do so: create a PR to this repository that improves one of the rules defined [HERE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). This `extended_checks.jl` file contains all the RAI-specific rules. 
- - _A new rule has to be defined_. As our system grows and evolves, new rules may have to be defined. The beginning of the file [extended_checks.jl](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl) and the section below detail this process. You can always ask `@Alexandre Bergel` on Slack for assistance. Create a new PR with the rule. 
+- _A rule needs to be better documented_. It is easy to do so: create a PR to this repository that improves one of the rules defined [HERE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl). This `extended_checks.jl` file contains all the RAI-specific rules.
+- _A new rule has to be defined_. As our system grows and evolves, new rules may have to be defined. The beginning of the file [extended_checks.jl](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl) and the section below detail this process. You can always ask `@Alexandre Bergel` on Slack for assistance. Create a new PR with the rule.
 
 ## Lint rules
 
@@ -57,13 +63,13 @@ A number of Julia keywords are known to be [either incompatible or dangerous whe
 The Lint rules available to be run on Julia source code may be found in this [FILE](https://github.com/RelationalAI/StaticLint.jl/blob/main/src/linting/extended_checks.jl).
 
 Adding a new rule is easy. Only the file `src/linting/extended_checks.jl` has to be modified. You need to follow the steps:
-1. Create a subtype of `ExtendedRule`, e.g., `struct Async_Extention <: ExtendedRule end`. Lint rules are dynamically looked up by looking at subtypes of `ExtendedRule`.
+1. Create a subtype of `LintRule`, e.g., `struct AsyncRule <: LintRule end`. Lint rules are dynamically looked up by looking at subtypes of `LintRule`.
 2. Create an overload of `check` to perform the actual check.
 
 Here is an example of a `check`:
 
 ```Julia
-check(::Async_Extention, x::EXPR) = generic_check(x, "@async hole_variable", "Use `@spawn` instead of `@async`.")
+check(::AsyncRule, x::EXPR) = generic_check(x, "@async hole_variable", "Use `@spawn` instead of `@async`.")
 ```
 
 The `generic_check` function takes as a second parameter the expression to be searched. The template string `"@async hole_variable"` means that the expression `x` will be matched against the template. The pseudo variable `hole_variable` matches everything. In case you want to match any arbitrary number of arguments, you can use `hole_variable_star` (look at the test for concrete examples).
@@ -72,7 +78,7 @@ If the expression `x` does match the template, then the expression is marked wit
 
 In case the expression must be matched in a particular context, e.g., only with a `const` expression, then you can use a `markers`, e.g.,
 ```
-function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+function check(::InitializingWithFunctionRule, x::EXPR, markers::Dict{Symbol,Symbol})
     # Threads.nthreads() must not be used in a const field, but it is allowed elsewhere
     haskey(markers, :const) || return
     generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
@@ -91,14 +97,13 @@ The different markers currently supported are:
 If you wish to run a particular rule only in a directory, you could do:
 
 ```
-function check(::NThreads_Extention, x::EXPR, markers::Dict{Symbol,Symbol})
+function check(::InitializingWithFunctionRule, x::EXPR, markers::Dict{Symbol,Symbol})
     isnothing(match(r".*/myfolder/.*", markers[:filename])) || return
     generic_check(x, "Threads.nthreads()", "`Threads.nthreads()` should not be used in a constant variable.")
 end
 ```
 
 This will run the `"Threads.nthreads()"` described earlier in all folders expect in `myfolder`.
-
 
 ## Locally disabling StaticLint
 
@@ -140,10 +145,24 @@ function f()
 end
 ```
 
-
 ## Integration with GitHub Action
-In addition to being run locally, as described above, StaticLint can be run via GitHub Action. When a PR is created, StaticLint is run on the files modified in this PR and the result is posted as a comment.
+
+In addition to being run locally, as described above, StaticLint can be run via GitHub
+Action. When a PR is created, StaticLint is run on the files modified in this PR and the
+result is posted as a comment.
 Only one report of StaticLint is posted in a PR, and it gets updated at each commit.
 
+## Listing all violations
+
+Currently, StaticLint limits the output of the report. In total, the number of reported
+violations and recommendations does not exceed 60. This limit is set by the variable
+`MAX_REPORTED_ERRORS`. You may want to increase it if you wish to have the full report
+from StaticLint.
+
 ## Fork
-This repository is a fork of https://github.com/julia-vscode/StaticLint.jl . The decision to fork this project instead of directly contributing to it was not taken lightly. First, the julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such using the original StaticLint with our RAI-specific rules was not an easy or even feasible task.
+
+This repository is a fork of https://github.com/julia-vscode/StaticLint.jl. The decision to
+fork this project instead of directly contributing to it was not taken lightly. First, the
+julia-vscode/StaticLint.jl is not designed to be easily and modularly extended. As such
+using the original StaticLint with our RAI-specific rules was not an easy or even feasible
+task.

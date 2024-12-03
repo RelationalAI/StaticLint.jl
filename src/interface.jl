@@ -1,41 +1,51 @@
 using Dates
 using JSON3
 
+global MAX_REPORTED_ERRORS = 60 # 1_000_000
+
+# Each individual rule violation report
+mutable struct LintRuleReport
+    rule::LintRule
+    msg::String
+    template::String
+    file::String
+    line::Int64
+    column::Int64
+    is_disabled::Bool   # Happens with a comments in the code
+
+    offset::Int64
+end
+LintRuleReport(rule::LintRule, msg::String) = LintRuleReport(rule, msg, "", "", 0, 0, false, 0)
+
+
+# Global result of executing Lint on files and folders
 mutable struct LintResult
     files_count::Integer
     violations_count::Integer
     recommendations_count::Integer
+    fatalviolations_count::Integer
     linted_files::Vector{String}
     printout_count::Integer
+    lintrule_reports::Vector{LintRuleReport}
 
-    LintResult(a, b, c, d, e) = new(a, b, c, d, e)
+    LintResult(a, b, c, d, e, f, g) = new(a, b, c, d, e, f, g)
 end
 
-LintResult() = LintResult(0, 0, 0, String[], 0)
-LintResult(a, b, c) = LintResult(a, b, c, String[])
-LintResult(a, b, c, d) = LintResult(a, b, c, d, 0)
+LintResult() = LintResult(0, 0, 0)
+LintResult(a, b, c) = LintResult(a, b, c, 0)
+LintResult(a, b, c, d) = LintResult(a, b, c, d, String[])
+LintResult(a, b, c, d, e) = LintResult(a, b, c, d, e, 0)
+LintResult(a, b, c, d, e, f) = LintResult(a, b, c, d, e, f, LintRuleReport[])
 
-# function Base.:+(l1::LintResult, l2::LintResult)
-#     return LintResult(
-#         l1.files_count + l2.files_count,
-#         l1.violations_count + l2.violations_count,
-#         l1.recommendations_count + l2.recommendations_count,
-#         vcat(l1.linted_files, l2.linted_files)
-#     )
-# end
 
 function Base.append!(l1::LintResult, l2::LintResult)
-    # if !isempty(l2.linted_files)
-    #     if first(l2.linted_files) in l1.linted_files
-    #         isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-    #         @error "ERROROOOOO"
-    #     end
-    # end
-
     l1.files_count += l2.files_count
     l1.violations_count += l2.violations_count
     l1.recommendations_count += l2.recommendations_count
+    l1.fatalviolations_count += l2.fatalviolations_count
     Base.append!(l1.linted_files, l2.linted_files)
+    Base.append!(l1.lintrule_reports, l2.lintrule_reports)
+
     l1.printout_count += l2.printout_count
 end
 
@@ -43,8 +53,10 @@ function Base.:(==)(l1::LintResult, l2::LintResult)
     return l1.files_count == l2.files_count &&
            l1.violations_count == l2.violations_count &&
            l1.recommendations_count == l2.recommendations_count &&
+           l1.fatalviolations_count == l2.fatalviolations_count &&
            l1.linted_files == l2.linted_files &&
-           l1.printout_count == l2.printout_count
+           l1.printout_count == l2.printout_count &&
+           l1.lintrule_reports == l2.lintrule_reports
 end
 
 function is_already_linted(l::LintResult, filename)
@@ -116,14 +128,36 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
     for f in values(server.files)
         check_all(f.cst, essential_options, getenv(f, server), markers)
     end
+    lint_rule_reports = []
     if gethints
         hints = []
         for (p,f) in server.files
             hints_for_file = []
             for (offset, x) in collect_hints(f.cst, getenv(f, server))
                 if haserror(x)
+                    # TODO: On some point, we should only have the LintRuleReport case
                     if x.meta.error isa String
                         push!(hints_for_file, (x, string(x.meta.error, " at offset ", offset, " of ", p)))
+                    elseif x.meta.error isa LintRuleReport
+                        # The next line should be deleted
+                        push!(hints_for_file, (x, string(x.meta.error.msg, " at offset ", offset, " of ", p)))
+
+                        lint_rule_report = x.meta.error
+                        lint_rule_report.offset = offset
+
+                        line_number, column, annotation_line = convert_offset_to_line_from_filename(lint_rule_report.offset + 1, lint_rule_report.file)
+                        lint_rule_report.line = line_number
+                        lint_rule_report.column = column
+
+                        # If the annotation is to disable lint,
+                        if annotation_line == "lint-disable-line"
+                            # then we disable it.
+                        elseif !isnothing(annotation_line) && startswith("lint-disable-line: $(lint_rule_report.msg)", annotation_line)
+                            # then we disable it.
+                        else
+                            # Else we record it.
+                            push!(lint_rule_reports, lint_rule_report)
+                        end
                     else
                         push!(hints_for_file, (x, string(LintCodeDescriptions[x.meta.error], " at offset ", offset, " of ", p)))
                     end
@@ -132,7 +166,7 @@ function lint_file(rootpath, server = setup_server(); gethints = false)
             end
             append!(hints, hints_for_file)
         end
-        return root, hints
+        return root, hints, lint_rule_reports
     else
         return root
     end
@@ -224,10 +258,6 @@ function convert_offset_to_line_from_lines(offset::Integer, all_lines)
     throw(BoundsError("source", offset))
 end
 
-function should_be_filtered(hint_as_string::String, filters::Vector{LintCodes})
-    return any(o->startswith(hint_as_string, LintCodeDescriptions[o]), filters)
-end
-
 abstract type AbstractFormatter end
 struct PlainFormat <: AbstractFormatter end
 
@@ -252,83 +282,31 @@ struct MarkdownFormat <: AbstractFormatter
     MarkdownFormat(branch::String, repo::String) = new(branch, repo, "", devnull)
 end
 
-"""
-    filter_and_print_hint(...)
+# Only show the fatal violations and a summary
+struct PreCommitFormat <: AbstractFormatter end
 
-Essential function to filter and print a `hint_as_string`, being a String.
-Return true if the hint was printed, else it was filtered.
-It takes the following arguments:
-    - `hint_as_string` to be filtered or printed
-    - `io` stream where the hint is printed, if not filtered
-    - `filters` the set of filters to be used
-    - `lint_result` is the current lint result. We used it to limit the produced report.
-"""
-function filter_and_print_hint(
-    hint_as_string::String,
-    lint_result::LintResult,
-    io::IO=stdout,
-    filters::Vector{LintCodes}=LintCodes[],
-    formatter::AbstractFormatter=PlainFormat(),
-)
-    # Filter along the message
-    should_be_filtered(hint_as_string, filters) && return false
-
-    # Filter along the file content
-    ss = split(hint_as_string)
-    has_filename = isfile(last(ss))
-    has_filename || error("Should have a filename")
-
-    filename = string(last(ss))
-
-    offset_as_string = ss[length(ss) - 2]
-    # +1 is because CSTParser gives offset starting at 0.
-    offset = Base.parse(Int64, offset_as_string) + 1
-
-    # Remove the offset from the result. No need for this.
-    cleaned_hint = replace(hint_as_string, (" at offset $(offset_as_string) of" => ""))
-
-    should_print_hint(result) = result.printout_count <= 60
-    try
-        line_number, column, annotation_line = convert_offset_to_line_from_filename(offset, filename)
-
-        has_no_annotation = isnothing(annotation_line)
-        if has_no_annotation
-            # No annotation, so we merely print the reported error.
-            if should_print_hint(lint_result)
-                # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        else
-            # there is an annotation, we need to distinguish if it is specific or not
-            is_generic_disable_annotation = annotation_line == "lint-disable-line"
-            if is_generic_disable_annotation
-                return false
-            end
-
-            v = match(r"lint-disable-line: (?<msg>.*)$", annotation_line)
-            msg = isnothing(v) ? nothing : v[:msg]
-
-            # if it is specific, and the reported error is different from the provided error
-            # then we report the error
-            if !isnothing(msg) && startswith(cleaned_hint, msg)
-                return false
-            end
-
-            if should_print_hint(lint_result)
-                print_hint(formatter, io, "Line $(line_number), column $(column):", cleaned_hint)
-                lint_result.printout_count += 1
-            end
-            return true
-        end
-    catch e
-        @assert e isa BoundsError
-        @error "Cannot retrieve offset=$(offset) in file $(filename)"
-    end
-    return false
+function print_header(::PreCommitFormat, io::IO, rootpath::String)
+    # printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
+    # printstyled(io, "**List of Fatal violations, please address them to commit these files**\n", color=:red)
 end
 
+print_footer(::PreCommitFormat, io::IO) = nothing
+function print_summary(::PreCommitFormat, io::IO, result::LintResult)
+    print_summary(PlainFormat(), io, result)
+    printstyled(io, "Note that the list above only show fatal violations\n", color=:red)
+end
+
+function print_report(::PreCommitFormat, io::IO, lint_report::LintRuleReport)
+    # Do not print anything if it is not a fatal violation
+    lint_report.rule isa FatalLintRule || return
+    printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
+    print(io, " ")
+    print(io, lint_report.msg)
+    print(io, " ")
+    println(io, lint_report.file)
+end
+
+should_print_report(result) = result.printout_count <= MAX_REPORTED_ERRORS
 
 function _run_lint_on_dir(
     rootpath::String;
@@ -364,27 +342,29 @@ function print_header(::PlainFormat, io::IO, rootpath::String)
     printstyled(io, "-" ^ 10 * " $(rootpath)\n", color=:blue)
 end
 
-function print_hint(::PlainFormat, io::IO, coordinates::String, hint::String)
-    printstyled(io, coordinates, color=:green)
+function print_report(::PlainFormat, io::IO, lint_report::LintRuleReport)
+    printstyled(io, "Line $(lint_report.line), column $(lint_report.column):", color=:green)
     print(io, " ")
-    println(io, hint)
+    print(io, lint_report.msg)
+    print(io, " ")
+    println(io, lint_report.file)
 end
 
 function print_summary(
     ::PlainFormat,
     io::IO,
-    count_violations::Integer,
-    count_recommendations::Integer
+    result::LintResult
 )
-    nb_hints = count_violations + count_recommendations
-    if iszero(nb_hints)
+    nb_rulereports = result.violations_count + result.recommendations_count + result.fatalviolations_count
+    if iszero(nb_rulereports)
         printstyled(io, "No potential threats were found.\n", color=:green)
     else
-        plural = nb_hints > 1 ? "s are" : " is"
-        plural_vio = count_violations > 1 ? "s" : ""
-        plural_rec = count_recommendations > 1 ? "s" : ""
-        printstyled(io, "$(nb_hints) potential threat$(plural) found: ", color=:red)
-        printstyled(io, "$(count_violations) violation$(plural_vio) and $(count_recommendations) recommendation$(plural_rec)\n", color=:red)
+        plural = nb_rulereports > 1 ? "s are" : " is"
+        plural_vio = result.violations_count > 1 ? "s" : ""
+        plural_fatal = result.fatalviolations_count > 1 ? "s" : ""
+        plural_rec = result.recommendations_count > 1 ? "s" : ""
+        printstyled(io, "$(nb_rulereports) potential threat$(plural) found: ", color=:red)
+        printstyled(io, "$(result.fatalviolations_count) fatal violation$(plural_fatal), $(result.violations_count) violation$(plural_vio) and $(result.recommendations_count) recommendation$(plural_rec)\n", color=:red)
     end
 end
 
@@ -409,27 +389,27 @@ function remove_prefix_from_filename(file_name::String, format::MarkdownFormat)
     return remove_prefix_from_filename(file_name, format.file_prefix_to_remove)
 end
 
-# Essential function to print a lint report using the Markdown
-function print_hint(format::MarkdownFormat, io::IO, coordinates::String, hint::String)
-    coord = split(coordinates, [' ', ','])
-    column_number = coord[1]
-    line_number = coord[2]
-    file_name = string(last(split(hint, " ")))
-    corrected_file_name = remove_prefix_from_filename(file_name, format)
+function print_report(format::MarkdownFormat, io::IO, lint_report::LintRuleReport)
+    corrected_file_name = remove_prefix_from_filename(lint_report.file, format)
 
+    coordinates = "Line $(lint_report.line), column $(lint_report.column):"
     if !isempty(format.github_branch_name) && !isempty(format.github_repository_name)
-        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(line_number))"
-        print(io, " - **$(extended_coordinates)** $(hint)\n")
+        extended_coordinates = "[$(coordinates)](https://github.com/$(format.github_repository_name)/blob/$(format.github_branch_name)/$(corrected_file_name)#L$(lint_report.line))"
+        print(io, " - **$(extended_coordinates)** $(lint_report.msg) $(lint_report.file)\n")
     else
-        print(io, " - **$(coordinates)** $(hint)\n")
+        print(io, " - **$(coordinates)** $(lint_report.msg) $(lint_report.file)\n")
     end
 
     # Produce workflow command to see results in the PR file changed tab:
     # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-setting-an-error-message
-    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(line_number),col=$(column_number)::$(hint)")
+    println(format.stream_workflowcommand, "::error file=$(corrected_file_name),line=$(lint_report.line),col=$(lint_report.column)::$(lint_report.msg)")
 end
 
-print_summary(::MarkdownFormat, io::IO, count_violations::Integer, count_recommendations::Integer) = nothing
+print_summary(
+    ::MarkdownFormat,
+    io::IO,
+    result::LintResult
+) = nothing
 
 does_file_server_need_to_be_initialized() = isnothing(StaticLint.global_server)
 function initialize_file_server()
@@ -473,44 +453,48 @@ function run_lint(
     endswith(rootpath, ".jl") || return result
 
     # We are running Lint on a Julia file
-    _,hints = StaticLint.lint_file(rootpath, server; gethints = true)
-
+    _,_,lint_reports = StaticLint.lint_file(rootpath, server; gethints = true)
     print_header(formatter, io, rootpath)
 
-    hint_as_strings = map(l -> l[2], hints)
-    hint_as_strings = filter(h->!should_be_filtered(h, filters), hint_as_strings)
-    function extract_msg_from_hint(m)
-        r = match(r"(?<msg>.+)[\.\?] \H+", m)
+    is_recommendation(r::LintRuleReport) = r.rule isa RecommendationLintRule
+    is_violation(r::LintRuleReport) = r.rule isa ViolationLintRule
+    is_fatal(r::LintRuleReport) = r.rule isa FatalLintRule
 
-        # We are now reaching a bug HERE
-        if isnothing(r)
-            @error "BUG FOUND IN StaticLint.jl, message from hint $(m) cannot be extracted"
-            return "ERROR"
+    violation_reports = filter(is_violation, lint_reports)
+    recommandation_reports = filter(is_recommendation, lint_reports)
+    fatalviolation_reports = filter(is_fatal, lint_reports)
+
+    count_violations = length(violation_reports)
+    count_recommendations = length(recommandation_reports)
+    count_fataviolations = length(fatalviolation_reports)
+
+    # Fatal reports are printed in io_violations, but first
+    io_tmp = isnothing(io_violations) ? io : io_violations
+    for r in fatalviolation_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
         end
-
-        return r[:msg] * "."
     end
 
-    @assert all(h -> typeof(h) == String, hint_as_strings)
-
-    # NO MORE THAN 30 VIOLATIONS AND 30 PR RECOMMENDATIONS
-    violation_hints = filter(m->rule_is_violation(extract_msg_from_hint(m)), hint_as_strings)
-    recommendation_hints = filter(m->rule_is_recommendation(extract_msg_from_hint(m)), hint_as_strings)
-
     io_tmp = isnothing(io_violations) ? io : io_violations
-    filtered_and_printed_hints_violations =
-        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), violation_hints)
+    for r in violation_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
+        end
+    end
 
     io_tmp = isnothing(io_recommendations) ? io : io_recommendations
-
-    filtered_and_printed_hints_recommandations =
-        filter(h->filter_and_print_hint(h, result, io_tmp, filters, formatter), recommendation_hints)
-
-    count_violations = length(filtered_and_printed_hints_violations)
-    count_recommendations = length(filtered_and_printed_hints_recommandations)
+    for r in recommandation_reports
+        if should_print_report(result)
+            print_report(formatter, io_tmp, r)
+            result.printout_count += 1
+        end
+    end
 
     # We run Lint on a single file.
-    append!(result, LintResult(1, count_violations, count_recommendations, [rootpath]))
+    append!(result, LintResult(1, count_violations, count_recommendations, count_fataviolations, [rootpath], 0, lint_reports))
     return result
 end
 
@@ -554,9 +538,7 @@ function run_lint_on_text(
     print_summary(
         formatter,
         io,
-        result.violations_count,
-        result.recommendations_count
-    )
+        result)
     print_footer(formatter, io)
 
     # If a directory has been provided, then it needs to be deleted, after manually deleting the file
@@ -640,7 +622,7 @@ function generate_report(
 
     if !isnothing(json_filename)
         if isfile(json_filename)
-            @error "File $(output_filename) exist already, cannot create json file."
+            @error "File $(json_filename) exist already, cannot create json file."
             return
         end
         json_output = open(json_filename, "w")
