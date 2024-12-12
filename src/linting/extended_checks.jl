@@ -218,8 +218,8 @@ struct NonFrontShapeAPIUsageRule <: ViolationLintRule end
 struct InterpolationInSafeLogRule <: RecommendationLintRule end
 struct UseOfStaticThreads <: ViolationLintRule end
 struct LogStatementsMustBeSafe <: FatalLintRule end
-
 struct ShowErrorReporting <: RecommendationLintRule end
+struct InterpolationOnlyInSafe <: ViolationLintRule end
 
 const all_extended_rule_types = Ref{Any}(
     vcat(
@@ -593,4 +593,21 @@ function check(t::ShowErrorReporting, x::EXPR)
     msg = "Reporting with `showerror(...)` instead of `safe_showerror(...)` could leak sensitive data."
     # generic_check(t, x, "showerror(hole_variable_star)", msg)
     generic_check(t, x, "showerror", msg)
+end
+
+function check(t::InterpolationOnlyInSafe, x::EXPR, markers::Dict{Symbol,String})
+    # Allow usage in Front benchmarks
+    contains(markers[:filename], "bench") && return
+    # Allow usages in tests
+    contains(markers[:filename], "test") && return
+
+    # We are in a macro call and the macro is @safe, we merely exit
+    haskey(markers, :macrocall) && markers[:macrocall] == "@safe" && return
+
+    # We are not in a @safe macro call, so we need to check for interpolation
+    msg = raw"""
+        Log messages must always be constructed via @safe("..") strings. If this interpolation is used in a log message, it should be a @safe-string. Please try this instead: @safe("...$(x)..."). If this is not being used for logging, you can lint-ignore this line.
+        """
+
+    generic_check(t, x, "\"LINT_STRING_WITH_INTERPOLATION\"", msg)
 end
