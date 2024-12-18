@@ -642,9 +642,10 @@ function all_arguments_are_safe(x::EXPR)
 end
 
 function check(t::LogStatementsMustBeSafe, x::EXPR)
-    # Must have "src/" in the file name, else we just
-    contains(markers[:filename], "src/") || return
-    contains(markers[:filename], "test/") && return
+    if haskey(markers, :filename)
+        # Must have "src/" in the file name, else we just
+        contains(markers[:filename], "test/") && return
+    end
 
     error_msg = "Unsafe logging statement. You must enclose variables and strings with `@safe(...)`."
 
