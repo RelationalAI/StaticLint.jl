@@ -641,7 +641,7 @@ function all_arguments_are_safe(x::EXPR)
     return true
 end
 
-function check(t::LogStatementsMustBeSafe, x::EXPR)
+function check(t::LogStatementsMustBeSafe, x::EXPR, markers::Dict{Symbol,String})
     if haskey(markers, :filename)
         # Must have "src/" in the file name, else we just
         contains(markers[:filename], "test/") && return
