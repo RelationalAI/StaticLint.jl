@@ -19,6 +19,89 @@
 #################################################################################
 # UTILITY FUNCTIONS
 #################################################################################
+headof(x::EXPR) = x.head
+valof(x::EXPR) = x.val
+# kindof(t::Tokens.AbstractToken) = t.kind
+parentof(x::EXPR) = x.parent
+errorof(x::EXPR) = errorof(x.meta)
+errorof(x) = x
+haserror(m::LintMeta) = m.error !== nothing
+haserror(x::EXPR) = hasmeta(x) && haserror(x.meta)
+hasmeta(x::EXPR) = x.meta isa LintMeta
+
+function seterror!(x::EXPR, e)
+    if !hasmeta(x)
+        x.meta = LintMeta()
+    end
+    x.meta.error = e
+end
+
+function fetch_value(x::EXPR, tag::Symbol)
+    if headof(x) == tag
+        return x.val
+    else
+        isnothing(x.args) && return nothing
+        for i in 1:length(x.args)
+            r = fetch_value(x.args[i], tag)
+            isnothing(r) || return r
+        end
+        return nothing
+    end
+end
+function collect_lint_report(x::EXPR, isquoted=false, errs=Tuple{Int,EXPR}[], pos=0)
+    if haserror(x)
+        push!(errs, (pos, x))
+    end
+
+    for i in 1:length(x)
+        collect_lint_report(x[i], isquoted, errs, pos)
+        pos += x[i].fullspan
+    end
+
+    errs
+end
+function check_all(x::EXPR, markers::Dict{Symbol,String}=Dict{Symbol,String}())
+    # Setting up the markers
+    if headof(x) === :const
+        markers[:const] = fetch_value(x, :IDENTIFIER)
+    end
+
+    if headof(x) === :function
+        markers[:function] = fetch_value(x, :IDENTIFIER)
+    end
+
+    if headof(x) === :macrocall
+        id = fetch_value(x, :IDENTIFIER)
+        if !isnothing(id)
+            markers[:macrocall] = id
+        end
+    end
+
+    # for T in all_extended_rule_types[]
+    for T in [LogStatementsMustBeSafe]
+        check_with_process(T, x, markers)
+        # isdefined(Main, :Infiltrator) && Main.infiltrate(@__MODULE__, Base.@locals, @__FILE__, @__LINE__)
+        if haserror(x) && x.meta.error isa LintRuleReport
+            lint_rule_report = x.meta.error
+            if haskey(markers, :filename)
+                lint_rule_report.file = markers[:filename]
+            end
+        end
+    end
+
+    if x.args !== nothing
+        for i in 1:length(x.args)
+            check_all(x.args[i], markers)
+        end
+    end
+
+    # Do some cleaning
+    headof(x) === :const && delete!(markers, :const)
+    headof(x) === :function && delete!(markers, :function)
+    headof(x) === :macrocall && delete!(markers, :macrocall)
+end
+
+
 function is_named_hole_variable(x::CSTParser.EXPR)
     return x.head == :IDENTIFIER &&
             startswith(x.val, "hole_variable") &&

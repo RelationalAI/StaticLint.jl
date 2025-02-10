@@ -1,27 +1,20 @@
 #!/bin/bash
 
-# If file exist, typically from a previous run, then we remove it
-if [ -f /tmp/files_to_run_lint.txt ]; then
-   rm /tmp/files_to_run_lint.txt
-fi
-
-# If the file containing result of lint exist, then we remove it
-if [ -f /tmp/result_lint.txt ]; then
-   rm /tmp/result_lint.txt
-fi
+# temporary file containing all the files on which lint has to run.
+FILES_TO_RUN=$(mktemp)
 
 # If no argument is provided, then we simply use the files staged
 if [[ $# -eq 0 ]] ; then
     echo 'No argument provided, running on staged files'
     FILES_LOCALLY_ADDED=`git status --porcelain | awk 'match($1, "A"){print $2}'`
     FILES_LOCALLY_MODIFIED=`git status --porcelain | awk 'match($1, "M"){print $2}'`
-    echo ${FILES_LOCALLY_ADDED} > /tmp/files_to_run_lint.txt
-    echo ${FILES_LOCALLY_MODIFIED} >> /tmp/files_to_run_lint.txt
+    echo ${FILES_LOCALLY_ADDED} > $FILES_TO_RUN
+    echo ${FILES_LOCALLY_MODIFIED} >> $FILES_TO_RUN
 else
     # If some files are provided, then we use these
-    echo $@ >> /tmp/files_to_run_lint.txt
+    echo $@ >> $FILES_TO_RUN
     # echo "RUNNING LINT ON: "
-    # cat /tmp/files_to_run_lint.txt
+    # cat "$FILES_TO_RUN"
     # echo "---"
 fi
 
@@ -29,22 +22,18 @@ fi
 echo "FULLNAME SCRIPT" $0
 STATICLINTPATH=$(dirname $0)/..
 echo "STATICLINT PATH=" $STATICLINTPATH
-# cd $STATICLINTPATH
-# ls
-echo "CURRENT PATH=" $PWD
-
-echo "Julia Registry updating and instantiating..."
-cd $STATICLINTPATH
-julia --project=$STATICLINTPATH -e "
-  import Pkg ; Pkg.Registry.update() ; Pkg.instantiate() ; Pkg.build()
-"
-cd -
+RAICODE_PATH=$PWD
+echo "CURRENT PATH=" $RAICODE_PATH
+echo "FILES_TO_RUN=" $FILES_TO_RUN
 
 echo "About to run StaticLint.jl..."
 julia --project=$STATICLINTPATH -e "
+  import Pkg
+  Pkg.instantiate()
+
   using StaticLint
   result = StaticLint.LintResult()
-  all_files_tmp=split(open(io->read(io, String), \"/tmp/files_to_run_lint.txt\", \"r\"))
+  all_files_tmp=split(open(io->read(io, String), \"$FILES_TO_RUN\", \"r\"))
   # convert substring into string
   all_files=map(string, all_files_tmp)
   # filter to existing Julia files only
