@@ -505,6 +505,8 @@ function check(t::NonFrontShapeAPIUsageRule, x::EXPR, markers::Dict{Symbol,Strin
     contains(markers[:filename], "src/FrontCompiler") && return
     contains(markers[:filename], "src/FFI") && return
     contains(markers[:filename], "src/FrontIR") && return
+    # For the move to its own package. Once this is in a package, we can remove src/FrontIR here
+    contains(markers[:filename], "packages/RAI_FrontIR") && return
     # Allow usage in shapes package
     contains(markers[:filename], "packages/Shapes") && return
     # Allow usage in Front benchmarks
